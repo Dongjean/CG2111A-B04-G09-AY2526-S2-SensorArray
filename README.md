@@ -1,5 +1,7 @@
-E-Stop Pin: PD2 (Digital Pin 19), INT0
-Colour Sensor:
+#**Pins We Used**
+###E-Stop Pin: PD2 (Digital Pin 19), INT0
+
+###Colour Sensor:
   S0: PA0 (Digital Pin 22)
   S1: PA1 (Digital Pin 23)
   S2: PA2 (Digital Pin 24)
