@@ -211,7 +211,7 @@ static uint32_t measureChannel(uint8_t s2High, uint8_t s3High) {
   // Wait for filter + frequency divider to settle (~10 ms)
   // Using the existing Timer2 tick counter (100 µs per tick)
   {
-    volatile uint32_t start = timerTicks;
+    uint32_t start = timerTicks;
     while ((timerTicks - start) < 100);  // 100 ticks × 100 µs = 10 ms
   }
 
@@ -223,7 +223,7 @@ static uint32_t measureChannel(uint8_t s2High, uint8_t s3High) {
 
   // Measurement window: 100 ms (1000 ticks × 100 µs)
   {
-    volatile uint32_t start = timerTicks;
+    uint32_t start = timerTicks;
     while ((timerTicks - start) < 1000);
   }
 
@@ -273,7 +273,11 @@ static void handleCommand(const TPacket *cmd) {
   switch (cmd->command) {
     case COMMAND_ESTOP:
       cli();
-      buttonState = STATE_STOPPED;
+      if (buttonState == STATE_RUNNING) {
+        buttonState = STATE_STOPPED;
+      } else if (buttonState == STATE_STOPPED) {
+        buttonState = STATE_RUNNING;
+      } 
       stateChanged = false;
       sei();
       {
@@ -289,7 +293,7 @@ static void handleCommand(const TPacket *cmd) {
         pkt.data[sizeof(pkt.data) - 1] = '\0';
         sendFrame(&pkt);
       }
-      sendStatus(STATE_STOPPED);
+      sendStatus(buttonState);
       break;
 
       // TODO (Activity 2): add COMMAND_COLOR case here.
@@ -328,12 +332,12 @@ void setup() {
   cli();
   EICRA |= 0b00010000;   //INT2, change in state
   DDRD &= ~(1 << PD2);    //pin 19 as input pin
-  TCCR2A |= 0b00000010;  //CTC mode
+  TCCR2A = 0b00000010;  //CTC mode
   TIMSK2 |= 0b00000010;  //OCIE2A
   TCNT2 = 0;
   OCR2A = 199;
   EIMSK |= 0b00000100;
-  TCCR2B |= 0b00000010;  //prescaler 8
+  TCCR2B = 0b00000010;  //prescaler 8
 
   colorSensorInit();
   sei();
