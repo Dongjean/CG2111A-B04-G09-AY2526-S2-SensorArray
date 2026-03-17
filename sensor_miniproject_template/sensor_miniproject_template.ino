@@ -31,6 +31,10 @@
 volatile uint32_t timerTicks = 0;
 volatile uint32_t lastTime = 0;
 volatile uint32_t currentTime = 0;
+
+// estopStage == 0 means that button is unpressed rn
+// estopStage == 1 means that button is pressed rn
+volatile char estopStage = 0;
 // =============================================================
 // Packet helpers (pre-implemented for you)
 // =============================================================
@@ -80,12 +84,21 @@ ISR(INT2_vect) {
   currentTime = timerTicks;
   if (currentTime - lastTime > 100) {  //threshold 5ms since every cycle is 100us
     if (buttonState == STATE_RUNNING && (PIND & PIN19)) {
-      buttonState = STATE_STOPPED;
-      stateChanged = true;
+      if (estopStage == 0) {
+        buttonState = STATE_STOPPED;
+        stateChanged = true;
+        estopStage = 1;
+      } else {
+        estopStage = 0;
+      }
     }
     else if (buttonState == STATE_STOPPED && !(PIND & PIN19)) {
-      buttonState = STATE_RUNNING;
-      stateChanged = true;
+      if (estopStage == 0) {
+        buttonState = STATE_RUNNING;
+        stateChanged = true;
+      } else {
+        estopStage = 0;
+      }
     }
     lastTime = currentTime;
   }
@@ -274,8 +287,10 @@ static void handleCommand(const TPacket *cmd) {
     case COMMAND_ESTOP:
       cli();
       if (buttonState == STATE_RUNNING) {
+        estopStage = 1;
         buttonState = STATE_STOPPED;
       } else if (buttonState == STATE_STOPPED) {
+        estopStage = 0;
         buttonState = STATE_RUNNING;
       } 
       stateChanged = false;
