@@ -346,7 +346,7 @@ static void handleCommand(const TPacket *cmd) {
           pkt.command = RESP_OK;
           strncpy(pkt.data, "moving forward", sizeof(pkt.data) - 1);
           pkt.data[sizeof(pkt.data) - 1] = '\0';
-          move(GO, pkt.params[0]);
+          move(GO, cmd->params[0]);
           sendFrame(&pkt);
         }
       }
@@ -371,7 +371,7 @@ static void handleCommand(const TPacket *cmd) {
           pkt.command = RESP_OK;
           strncpy(pkt.data, "turning clockwise", sizeof(pkt.data) - 1);
           pkt.data[sizeof(pkt.data) - 1] = '\0';
-          move(CW, pkt.params[0]);
+          move(CW, cmd->params[0]);
           sendFrame(&pkt);
         }
       }
@@ -396,7 +396,7 @@ static void handleCommand(const TPacket *cmd) {
           pkt.command = RESP_OK;
           strncpy(pkt.data, "turning counter clockwise", sizeof(pkt.data) - 1);
           pkt.data[sizeof(pkt.data) - 1] = '\0';
-          move(CCW, pkt.params[0]);
+          move(CCW, cmd->params[0]);
           sendFrame(&pkt);
         }
       }
@@ -421,7 +421,7 @@ static void handleCommand(const TPacket *cmd) {
           pkt.command = RESP_OK;
           strncpy(pkt.data, "moving backward", sizeof(pkt.data) - 1);
           pkt.data[sizeof(pkt.data) - 1] = '\0';
-          move(BACK, pkt.params[0]);
+          move(BACK, cmd->params[0]);
           sendFrame(&pkt);
         }
       }

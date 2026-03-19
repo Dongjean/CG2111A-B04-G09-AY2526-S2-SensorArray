@@ -352,29 +352,37 @@ def handleUserInput(line):
     elif line == 'l':
         handleLidarCommand()
     elif line.startswith('w'):
-        duration = line.split()[1]
-        if not(duration.isdigit()) or int(duration) < 0:
+        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_GO, params=duration)
+            duration = line.split()[1]
+            params = [0]*16;
+            params[0] = duration;
+            sendCommand(COMMAND_GO, params=params)
     elif line.startswith('a'):
-        duration = line.split()[1]
-        if not(duration.isdigit()) or int(duration) < 0:
+        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_CCW, params=[duration])
+            duration = line.split()[1]
+            params = [0]*16;
+            params[0] = duration;
+            sendCommand(COMMAND_CCW, params=params)
     elif line.startswith('d'):
-        duration = line.split()[1]
-        if not(duration.isdigit()) or int(duration) < 0:
+        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_CW, params=[duration])
+            duration = line.split()[1]
+            params = [0]*16;
+            params[0] = duration;
+            sendCommand(COMMAND_CW, params=params)
     elif line.startswith('s'):
-        duration = line.split()[1]
-        if not(duration.isdigit()) or int(duration) < 0:
+        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_BACK, params=[duration])
+            duration = line.split()[1]
+            params = [0]*16;
+            params[0] = duration;
+            sendCommand(COMMAND_BACK, params=params)
     elif line == 'x':
         sendCommand(COMMAND_STOP, params=[duration])
     elif line == '+':
