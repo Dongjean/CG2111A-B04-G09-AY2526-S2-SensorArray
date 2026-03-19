@@ -36,7 +36,7 @@ volatile uint32_t currentTime = 0;
 uint32_t moveStartTime = 0;
 uint32_t moveDuration = 0;
 char moving = 0;
-int speed = 100;
+int speed = 200;
 int increment = 5;
 
 // estopStage == 0 means that button is unpressed rn
@@ -448,7 +448,11 @@ static void handleCommand(const TPacket *cmd) {
           memset(&pkt, 0, sizeof(pkt));
           pkt.packetType = PACKET_TYPE_RESPONSE;
           pkt.command = RESP_OK;
-          strncpy(pkt.data, "moving faster", sizeof(pkt.data) - 1);
+          char speedText[8];
+          itoa(speed, speedText, 10);
+          char message[32] = "moving faster, speed: ";
+          strcat(message, speedText);
+          strncpy(pkt.data, message, sizeof(pkt.data) - 1);
           pkt.data[sizeof(pkt.data) - 1] = '\0';
           sendFrame(&pkt);
         }
@@ -462,7 +466,11 @@ static void handleCommand(const TPacket *cmd) {
         memset(&pkt, 0, sizeof(pkt));
         pkt.packetType = PACKET_TYPE_RESPONSE;
         pkt.command = RESP_OK;
-        strncpy(pkt.data, "moving slower", sizeof(pkt.data) - 1);
+        char speedText[8];
+        itoa(speed, speedText, 10);
+        char message[32] = "moving slower, speed: ";
+        strcat(message, speedText);
+        strncpy(pkt.data, message, sizeof(pkt.data) - 1);
         pkt.data[sizeof(pkt.data) - 1] = '\0';
         sendFrame(&pkt);
       }
@@ -510,7 +518,7 @@ void loop() {
     sendStatus(state);
   }
 
-  if (moving && timerTicks - moveStartTime >= moveDuration) {
+  if (moving && timerTicks - moveStartTime >= moveDuration * 10) {
     {
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));

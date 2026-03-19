@@ -273,7 +273,7 @@ def handleColorCommand():
 
 # TODO (Activity 3): import the camera library provided (alex_camera.py).
 import alex_camera as alex
-_camera = alex.cameraOpen()          # TODO (Activity 3): open the camera (cameraOpen()) before first use.
+#_camera = alex.cameraOpen()          # TODO (Activity 3): open the camera (cameraOpen()) before first use.
 _frames_remaining = 5   # frames remaining before further captures are refused
 
 
@@ -351,40 +351,25 @@ def handleUserInput(line):
         handleCameraCommand()
     elif line == 'l':
         handleLidarCommand()
-    elif line.startswith('w'):
-        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
-            print("Unknown duration input")
-        else:
+    elif line.split()[0] in "wasd":
+        if len(line.split()) >= 2:
+            cmd = line.split()[0]
             duration = line.split()[1]
-            params = [0]*16;
-            params[0] = duration;
-            sendCommand(COMMAND_GO, params=params)
-    elif line.startswith('a'):
-        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
-            print("Unknown duration input")
-        else:
-            duration = line.split()[1]
-            params = [0]*16;
-            params[0] = duration;
-            sendCommand(COMMAND_CCW, params=params)
-    elif line.startswith('d'):
-        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
-            print("Unknown duration input")
-        else:
-            duration = line.split()[1]
-            params = [0]*16;
-            params[0] = duration;
-            sendCommand(COMMAND_CW, params=params)
-    elif line.startswith('s'):
-        if len(line.split()) < 2 or not(duration.isdigit()) or int(duration) < 0:
-            print("Unknown duration input")
-        else:
-            duration = line.split()[1]
-            params = [0]*16;
-            params[0] = duration;
-            sendCommand(COMMAND_BACK, params=params)
+            if not(duration.isdigit()) or int(duration) < 0:
+                print("Unknown duration input")
+            else:
+                params = [0]*16;
+                params[0] = int(duration);
+                if cmd == 'w':
+                    sendCommand(COMMAND_GO, params=params)
+                elif cmd == 'a':
+                    sendCommand(COMMAND_CCW, params=params)
+                elif cmd == 's':
+                    sendCommand(COMMAND_BACK, params=params)
+                elif cmd == 'd':
+                    sendCommand(COMMAND_CW, params=params)
     elif line == 'x':
-        sendCommand(COMMAND_STOP, params=[duration])
+        sendCommand(COMMAND_STOP)
     elif line == '+':
         sendCommand(COMMAND_FASTER)
     elif line == '-':
