@@ -351,36 +351,32 @@ def handleUserInput(line):
         handleCameraCommand()
     elif line == 'l':
         handleLidarCommand()
-    elif line.startswith() == 'w':
+    elif line.startswith('w'):
         duration = line.split()[1]
-        if not(duration.isdigit()) or duration < 0:
+        if not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
             sendCommand(COMMAND_GO, params=duration)
-    elif line.startswith() == 'a':
+    elif line.startswith('a'):
         duration = line.split()[1]
-        if not(duration.isdigit()) or duration < 0:
+        if not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_CCW, params=duration)
-    elif line.startswith() == 'd':
+            sendCommand(COMMAND_CCW, params=[duration])
+    elif line.startswith('d'):
         duration = line.split()[1]
-        if not(duration.isdigit()) or duration < 0:
+        if not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_CW, params=duration)
-    elif line.startswith() == 's':
+            sendCommand(COMMAND_CW, params=[duration])
+    elif line.startswith('s'):
         duration = line.split()[1]
-        if not(duration.isdigit()) or duration < 0:
+        if not(duration.isdigit()) or int(duration) < 0:
             print("Unknown duration input")
         else:
-            sendCommand(COMMAND_BACK, params=duration)
-    elif line.startswith() == 'x':
-        duration = line.split()[1]
-        if not(duration.isdigit()) or duration < 0:
-            print("Unknown duration input")
-        else:
-            sendCommand(COMMAND_STOP, params=duration)
+            sendCommand(COMMAND_BACK, params=[duration])
+    elif line == 'x':
+        sendCommand(COMMAND_STOP, params=[duration])
     elif line == '+':
         sendCommand(COMMAND_FASTER)
     elif line == '-':

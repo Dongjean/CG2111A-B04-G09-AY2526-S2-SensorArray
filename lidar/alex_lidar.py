@@ -25,7 +25,11 @@ Constants:
 import time
 import numpy as np
 
+import sys
+sys.path.append("/home/prof/code/pyrplidar")
+
 from pyrplidar import PyRPlidar, PyRPlidarMeasurement
+
 
 
 # RPLidar A1M8

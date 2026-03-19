@@ -24,13 +24,13 @@ typedef enum {
     COMMAND_ESTOP = 0,
     COMMAND_COLOUR = 1,
     // TODO (Activity 2): add your own command type for the color sensor
-    COMMAND_GO = 2;
-    COMMAND_CW = 3;
-    COMMAND_CCW = 4;
-    COMMAND_BACK = 5;
-    COMMAND_STOP = 6;
-    COMMAND_FASTER = 7;
-    COMMAND_SLOWER = 8;
+    COMMAND_GO = 2,
+    COMMAND_CW = 3,
+    COMMAND_CCW = 4,
+    COMMAND_BACK = 5,
+    COMMAND_STOP = 6,
+    COMMAND_FASTER = 7,
+    COMMAND_SLOWER = 8,
 } TCommandType;
 
 typedef enum {

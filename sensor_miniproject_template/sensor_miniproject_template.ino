@@ -448,7 +448,7 @@ static void handleCommand(const TPacket *cmd) {
           memset(&pkt, 0, sizeof(pkt));
           pkt.packetType = PACKET_TYPE_RESPONSE;
           pkt.command = RESP_OK;
-          strncpy(pkt.data, "moving faster, speed " + to_string(speed), sizeof(pkt.data) - 1);
+          strncpy(pkt.data, "moving faster", sizeof(pkt.data) - 1);
           pkt.data[sizeof(pkt.data) - 1] = '\0';
           sendFrame(&pkt);
         }
@@ -462,14 +462,14 @@ static void handleCommand(const TPacket *cmd) {
         memset(&pkt, 0, sizeof(pkt));
         pkt.packetType = PACKET_TYPE_RESPONSE;
         pkt.command = RESP_OK;
-        strncpy(pkt.data, "moving slower, speed " + to_string(speed), sizeof(pkt.data) - 1);
+        strncpy(pkt.data, "moving slower", sizeof(pkt.data) - 1);
         pkt.data[sizeof(pkt.data) - 1] = '\0';
         sendFrame(&pkt);
       }
       break;
     }
   }
-}
+
 
 // =============================================================
 // Arduino setup() and loop()
@@ -510,7 +510,7 @@ void loop() {
     sendStatus(state);
   }
 
-  if (moving && timerTicks - moveStartTime >= duration) {
+  if (moving && timerTicks - moveStartTime >= moveDuration) {
     {
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));
