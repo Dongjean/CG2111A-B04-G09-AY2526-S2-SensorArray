@@ -29,6 +29,8 @@ typedef enum {
     COMMAND_CCW = 4;
     COMMAND_BACK = 5;
     COMMAND_STOP = 6;
+    COMMAND_FASTER = 7;
+    COMMAND_SLOWER = 8;
 } TCommandType;
 
 typedef enum {

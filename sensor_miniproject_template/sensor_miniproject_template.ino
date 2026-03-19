@@ -36,6 +36,8 @@ volatile uint32_t currentTime = 0;
 uint32_t moveStartTime = 0;
 uint32_t moveDuration = 0;
 char moving = 0;
+int speed = 100;
+int increment = 5;
 
 // estopStage == 0 means that button is unpressed rn
 // estopStage == 1 means that button is pressed rn
@@ -212,7 +214,6 @@ static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 void move(int direction, int duration=0)
 {
-  int speed = 100;
   if (direction == STOP) {
     motorFL.run(RELEASE);
     motorFR.run(RELEASE);
@@ -229,35 +230,42 @@ void move(int direction, int duration=0)
     motorBR.setSpeed(speed);
 
     switch(direction)
-      {
-        case BACK:
-          motorFL.run(BACKWARD);
-          motorFR.run(BACKWARD);
-          motorBL.run(FORWARD);
-          motorBR.run(FORWARD); 
-        break;
-        case GO:
-          motorFL.run(FORWARD);
-          motorFR.run(FORWARD);
-          motorBL.run(BACKWARD);
-          motorBR.run(BACKWARD); 
-        break;
-        case CW:
-          motorFL.run(BACKWARD);
-          motorFR.run(FORWARD);
-          motorBL.run(FORWARD);
-          motorBR.run(BACKWARD); 
-        break;
-        case CCW:
-          motorFL.run(FORWARD);
-          motorFR.run(BACKWARD);
-          motorBL.run(BACKWARD);
-          motorBR.run(FORWARD); 
-        break; 
-      }
+    {
+      case BACK:
+        motorFL.run(FORWARD);
+        motorFR.run(FORWARD);
+        motorBL.run(BACKWARD);
+        motorBR.run(FORWARD); 
+      break;
+      case GO:
+        motorFL.run(BACKWARD);
+        motorFR.run(BACKWARD);
+        motorBL.run(FORWARD);
+        motorBR.run(BACKWARD); 
+      break;
+      case CCW:
+        motorFL.run(FORWARD);
+        motorFR.run(BACKWARD);
+        motorBL.run(BACKWARD);
+        motorBR.run(BACKWARD); 
+      break;
+      case CW:
+        motorFL.run(BACKWARD);
+        motorFR.run(FORWARD);
+        motorBL.run(FORWARD);
+        motorBR.run(FORWARD); 
+      break;
+      case STOP:
+      default:
+        motorFL.run(RELEASE);
+        motorFR.run(RELEASE);
+        motorBL.run(RELEASE);
+        motorBR.run(RELEASE); 
+    }
   }
   
 }
+
 // =============================================================
 // Command handler
 // =============================================================
@@ -430,9 +438,36 @@ static void handleCommand(const TPacket *cmd) {
           move(STOP);
           sendFrame(&pkt);
         }
+        break;
+
+    case COMMAND_FASTER:
+        speed += increment;
+        speed = constrain(speed, 0, 255);
+        {
+          TPacket pkt;
+          memset(&pkt, 0, sizeof(pkt));
+          pkt.packetType = PACKET_TYPE_RESPONSE;
+          pkt.command = RESP_OK;
+          strncpy(pkt.data, "moving faster, speed " + to_string(speed), sizeof(pkt.data) - 1);
+          pkt.data[sizeof(pkt.data) - 1] = '\0';
+          sendFrame(&pkt);
+        }
+        break;
+
+    case COMMAND_SLOWER:
+      speed -= increment;
+      speed = constrain(speed, 0, 255);
+      {
+        TPacket pkt;
+        memset(&pkt, 0, sizeof(pkt));
+        pkt.packetType = PACKET_TYPE_RESPONSE;
+        pkt.command = RESP_OK;
+        strncpy(pkt.data, "moving slower, speed " + to_string(speed), sizeof(pkt.data) - 1);
+        pkt.data[sizeof(pkt.data) - 1] = '\0';
+        sendFrame(&pkt);
       }
       break;
-        
+    }
   }
 }
 

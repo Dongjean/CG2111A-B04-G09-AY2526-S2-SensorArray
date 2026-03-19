@@ -64,6 +64,8 @@ COMMAND_CW = 3
 COMMAND_CCW = 4
 COMMAND_BACK = 5
 COMMAND_STOP = 6
+COMMAND_FASTER= 7
+COMMAND_SLOWER = 8
 
 RESP_OK     = 0
 RESP_STATUS = 1
@@ -379,6 +381,10 @@ def handleUserInput(line):
             print("Unknown duration input")
         else:
             sendCommand(COMMAND_STOP, params=duration)
+    elif line == '+':
+        sendCommand(COMMAND_FASTER)
+    elif line == '-':
+        sendCommand(COMMAND_SLOWER)
     else:
         print(f"Unknown input: '{line}'. Valid: e, c, p, l")
 
