@@ -1,25 +1,7 @@
-/*
- * sensor_miniproject_template.ino
- * Studio 13: Sensor Mini-Project
- *
- * This sketch is split across three files in this folder:
- *
- *   packets.h        - TPacket protocol: enums, struct, framing constants.
- *                      Must stay in sync with pi_sensor.py.
- *
- *   serial_driver.h  - Transport layer.  Set USE_BAREMETAL_SERIAL to 0
- *                      (default) for the Arduino Serial path that works
- *                      immediately, or to 1 to use the bare-metal USART
- *                      driver (Activity 1).  Also contains the
- *                      sendFrame / receiveFrame framing code.
- *
- *   sensor_miniproject_template.ino  (this file)
- *                    - Application logic: packet helpers, E-Stop state
- *                      machine, color sensor, setup(), and loop().
- */
-
 #include "packets.h"
 #include "serial_driver.h"
+#include <AFMotor.h>
+
 #define PIN19 0b00000100 //Estop button 
 
 #define S0_BIT (1 << PA0) // D22
@@ -28,9 +10,32 @@
 #define S3_BIT (1 << PA3) // D25
 #define OUT_BIT (1 << PE5)
 
+#define FRONT_LEFT   4 // M4 on the driver shield
+#define FRONT_RIGHT  1 // M1 on the driver shield
+#define BACK_LEFT    3 // M3 on the driver shield
+#define BACK_RIGHT   2 // M2 on the driver shield
+
+// Direction values
+typedef enum dir
+{
+  STOP,
+  GO,
+  BACK,
+  CCW,
+  CW
+} dir;
+
+AF_DCMotor motorFL(FRONT_LEFT);
+AF_DCMotor motorFR(FRONT_RIGHT);
+AF_DCMotor motorBL(BACK_LEFT);
+AF_DCMotor motorBR(BACK_RIGHT);
+
 volatile uint32_t timerTicks = 0;
 volatile uint32_t lastTime = 0;
 volatile uint32_t currentTime = 0;
+uint32_t moveStartTime = 0;
+uint32_t moveDuration = 0;
+char moving = 0;
 
 // estopStage == 0 means that button is unpressed rn
 // estopStage == 1 means that button is pressed rn
@@ -65,19 +70,7 @@ static void sendStatus(TState state) {
 
 volatile TState buttonState = STATE_RUNNING;
 volatile static bool stateChanged = false;
-
-/*
- * TODO (Activity 1): Implement the E-Stop ISR.
- *
- * Fire on any logical change on the button pin.
- * State machine (see handout diagram):
- *   RUNNING + press (pin HIGH)  ->  STOPPED, set stateChanged = true
- *   STOPPED + release (pin LOW) ->  RUNNING, set stateChanged = true
- *
- * Debounce the button.  You will also need to enable this interrupt
- * in setup() -- check the ATMega2560 datasheet for the correct
- * registers for your chosen pin.
- */
+//estop
 
 ISR(INT2_vect) {
   // YOUR CODE HERE
@@ -109,48 +102,6 @@ ISR(TIMER2_COMPA_vect) {
 }
 
 
-// =============================================================
-// Color sensor (TCS3200)
-// =============================================================
-
-/*
- * TODO (Activity 2): Implement the color sensor.
- *
- * Wire the TCS3200 to the Arduino Mega and configure the output pins
- * (S0, S1, S2, S3) and the frequency output pin.
- *
- * Use 20% output frequency scaling (S0=HIGH, S1=LOW).  This is the
- * required standardised setting; it gives a convenient measurement range and
- * ensures all implementations report the same physical quantity.
- *
- * Use a timer to count rising edges on the sensor output over a fixed
- * window (e.g. 100 ms) for each color channel (red, green, blue).
- * Convert the edge count to hertz before sending:
- *   frequency_Hz = edge_count / measurement_window_s
- * For a 100 ms window: frequency_Hz = edge_count * 10.
- *
- * Implement a function that measures all three channels and stores the
- * frequency in Hz in three variables.
- *
- * Define your own command and response types in packets.h (and matching
- * constants in pi_sensor.py), then handle the command in handleCommand()
- * and send back the channel frequencies (in Hz) in a response packet.
- *
- * Example skeleton:
- *
- *   static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
- *       // Set S2/S3 for each channel, measure edge count, multiply by 10
- *       *r = measureChannel(0, 0) * 10;  // red,   in Hz
- *       *g = measureChannel(1, 1) * 10;  // green, in Hz
- *       *b = measureChannel(0, 1) * 10;  // blue,  in Hz
- *   }
- */
-
-// =============================================================
-// Color sensor (TCS3200) — Bare-metal implementation
-// Refer to TCS3200 datasheet TAOS099, July 2009
-// =============================================================
-
 volatile uint32_t edgeCount = 0;
 
 // INT5 ISR — counts rising edges from TCS3200 OUT pin (PE5 / Digital 3)
@@ -158,15 +109,6 @@ ISR(INT5_vect) {
   edgeCount++;
 }
 
-/*
- * Initialise TCS3200 pins and set 20% frequency scaling.
- *
- * Datasheet Table 1:
- *   S0=H, S1=L  ->  20% output frequency scaling
- *   At 20% scaling, full-scale frequency is 100–120 kHz.
- *
- * OE is tied to GND (active low) so the output is always enabled.
- */
 static void colorSensorInit() {
   // S0–S3 as outputs
   DDRA |= (S0_BIT | S1_BIT | S2_BIT | S3_BIT);
@@ -266,6 +208,56 @@ static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
   *b = measureChannel(0, 1) * 10;   // Blue:  S2=L, S3=H  -> Hz
 }
 
+// Motor control
+
+void move(int direction, int duration=0)
+{
+  int speed = 100;
+  if (direction == STOP) {
+    motorFL.run(RELEASE);
+    motorFR.run(RELEASE);
+    motorBL.run(RELEASE);
+    motorBR.run(RELEASE); 
+    moving = 0;
+  } else {
+    moving = 1;
+    moveStartTime = timerTicks;
+    moveDuration = duration;
+    motorFL.setSpeed(speed);
+    motorFR.setSpeed(speed);
+    motorBL.setSpeed(speed);
+    motorBR.setSpeed(speed);
+
+    switch(direction)
+      {
+        case BACK:
+          motorFL.run(BACKWARD);
+          motorFR.run(BACKWARD);
+          motorBL.run(FORWARD);
+          motorBR.run(FORWARD); 
+        break;
+        case GO:
+          motorFL.run(FORWARD);
+          motorFR.run(FORWARD);
+          motorBL.run(BACKWARD);
+          motorBR.run(BACKWARD); 
+        break;
+        case CW:
+          motorFL.run(BACKWARD);
+          motorFR.run(FORWARD);
+          motorBL.run(FORWARD);
+          motorBR.run(BACKWARD); 
+        break;
+        case CCW:
+          motorFL.run(FORWARD);
+          motorFR.run(BACKWARD);
+          motorBL.run(BACKWARD);
+          motorBR.run(FORWARD); 
+        break; 
+      }
+  }
+  
+}
 // =============================================================
 // Command handler
 // =============================================================
@@ -314,7 +306,7 @@ static void handleCommand(const TPacket *cmd) {
       // TODO (Activity 2): add COMMAND_COLOR case here.
       //   Call your color-reading function (which returns Hz), then send a
       //   response packet with the three channel frequencies in Hz.
-      case COMMAND_COLOUR:
+    case COMMAND_COLOUR:
       {
         TPacket pkt;
         memset(&pkt, 0, sizeof(pkt));
@@ -325,6 +317,121 @@ static void handleCommand(const TPacket *cmd) {
         readColorChannels(&(pkt.params[0]), &(pkt.params[1]), &(pkt.params[2]));
         sendFrame(&pkt);
       }
+      break;
+
+    case COMMAND_GO:
+      if (moving) {
+        {
+        TPacket pkt;
+        memset(&pkt, 0, sizeof(pkt));
+        pkt.packetType = PACKET_TYPE_RESPONSE;
+        pkt.command = RESP_OK;
+        strncpy(pkt.data, "wait im still moving", sizeof(pkt.data) - 1);
+        pkt.data[sizeof(pkt.data) - 1] = '\0';
+        sendFrame(&pkt);
+        }
+      } else {
+        {
+          TPacket pkt;
+          memset(&pkt, 0, sizeof(pkt));
+          pkt.packetType = PACKET_TYPE_RESPONSE;
+          pkt.command = RESP_OK;
+          strncpy(pkt.data, "moving forward", sizeof(pkt.data) - 1);
+          pkt.data[sizeof(pkt.data) - 1] = '\0';
+          move(GO, pkt.params[0]);
+          sendFrame(&pkt);
+        }
+      }
+      break;
+    
+    case COMMAND_CW:
+      if (moving) {
+        {
+        TPacket pkt;
+        memset(&pkt, 0, sizeof(pkt));
+        pkt.packetType = PACKET_TYPE_RESPONSE;
+        pkt.command = RESP_OK;
+        strncpy(pkt.data, "wait im still moving", sizeof(pkt.data) - 1);
+        pkt.data[sizeof(pkt.data) - 1] = '\0';
+        sendFrame(&pkt);
+        }
+      } else {
+        {
+          TPacket pkt;
+          memset(&pkt, 0, sizeof(pkt));
+          pkt.packetType = PACKET_TYPE_RESPONSE;
+          pkt.command = RESP_OK;
+          strncpy(pkt.data, "turning clockwise", sizeof(pkt.data) - 1);
+          pkt.data[sizeof(pkt.data) - 1] = '\0';
+          move(CW, pkt.params[0]);
+          sendFrame(&pkt);
+        }
+      }
+      break;
+
+    case COMMAND_CCW:
+      if (moving) {
+        {
+        TPacket pkt;
+        memset(&pkt, 0, sizeof(pkt));
+        pkt.packetType = PACKET_TYPE_RESPONSE;
+        pkt.command = RESP_OK;
+        strncpy(pkt.data, "wait im still moving", sizeof(pkt.data) - 1);
+        pkt.data[sizeof(pkt.data) - 1] = '\0';
+        sendFrame(&pkt);
+        }
+      } else {
+        {
+          TPacket pkt;
+          memset(&pkt, 0, sizeof(pkt));
+          pkt.packetType = PACKET_TYPE_RESPONSE;
+          pkt.command = RESP_OK;
+          strncpy(pkt.data, "turning counter clockwise", sizeof(pkt.data) - 1);
+          pkt.data[sizeof(pkt.data) - 1] = '\0';
+          move(CCW, pkt.params[0]);
+          sendFrame(&pkt);
+        }
+      }
+      break;
+
+    case COMMAND_BACK:
+      if (moving) {
+        {
+        TPacket pkt;
+        memset(&pkt, 0, sizeof(pkt));
+        pkt.packetType = PACKET_TYPE_RESPONSE;
+        pkt.command = RESP_OK;
+        strncpy(pkt.data, "wait im still moving", sizeof(pkt.data) - 1);
+        pkt.data[sizeof(pkt.data) - 1] = '\0';
+        sendFrame(&pkt);
+        }
+      } else {
+        {
+          TPacket pkt;
+          memset(&pkt, 0, sizeof(pkt));
+          pkt.packetType = PACKET_TYPE_RESPONSE;
+          pkt.command = RESP_OK;
+          strncpy(pkt.data, "moving backward", sizeof(pkt.data) - 1);
+          pkt.data[sizeof(pkt.data) - 1] = '\0';
+          move(BACK, pkt.params[0]);
+          sendFrame(&pkt);
+        }
+      }
+      break;
+
+    case COMMAND_STOP:
+        {
+          TPacket pkt;
+          memset(&pkt, 0, sizeof(pkt));
+          pkt.packetType = PACKET_TYPE_RESPONSE;
+          pkt.command = RESP_OK;
+          strncpy(pkt.data, "move stopping", sizeof(pkt.data) - 1);
+          pkt.data[sizeof(pkt.data) - 1] = '\0';
+          move(STOP);
+          sendFrame(&pkt);
+        }
+      }
+      break;
         
   }
 }
@@ -368,6 +475,18 @@ void loop() {
     sendStatus(state);
   }
 
+  if (moving && timerTicks - moveStartTime >= duration) {
+    {
+      TPacket pkt;
+      memset(&pkt, 0, sizeof(pkt));
+      pkt.packetType = PACKET_TYPE_RESPONSE;
+      pkt.command = RESP_OK;
+      strncpy(pkt.data, "done moving", sizeof(pkt.data) - 1);
+      pkt.data[sizeof(pkt.data) - 1] = '\0';
+      move(STOP);
+      sendFrame(&pkt);
+    }
+  }
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
   if (receiveFrame(&incoming)) {

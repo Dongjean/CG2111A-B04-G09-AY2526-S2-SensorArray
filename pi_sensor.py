@@ -58,14 +58,15 @@ PACKET_TYPE_RESPONSE = 1
 PACKET_TYPE_MESSAGE  = 2
 
 COMMAND_ESTOP  = 0
-# TODO (Activity 2): define your own command type for the color sensor here.
-# It must match the value you add to TCommandType in packets.h.
 COMMAND_COLOUR = 1
+COMMAND_GO = 2
+COMMAND_CW = 3
+COMMAND_CCW = 4
+COMMAND_BACK = 5
+COMMAND_STOP = 6
 
 RESP_OK     = 0
 RESP_STATUS = 1
-# TODO (Activity 2): define your own response type for the color sensor here.
-# It must match the value you add to TResponseType in packets.h.
 RESP_COLOUR = 2
 
 STATE_RUNNING = 0
@@ -348,6 +349,36 @@ def handleUserInput(line):
         handleCameraCommand()
     elif line == 'l':
         handleLidarCommand()
+    elif line.startswith() == 'w':
+        duration = line.split()[1]
+        if not(duration.isdigit()) or duration < 0:
+            print("Unknown duration input")
+        else:
+            sendCommand(COMMAND_GO, params=duration)
+    elif line.startswith() == 'a':
+        duration = line.split()[1]
+        if not(duration.isdigit()) or duration < 0:
+            print("Unknown duration input")
+        else:
+            sendCommand(COMMAND_CCW, params=duration)
+    elif line.startswith() == 'd':
+        duration = line.split()[1]
+        if not(duration.isdigit()) or duration < 0:
+            print("Unknown duration input")
+        else:
+            sendCommand(COMMAND_CW, params=duration)
+    elif line.startswith() == 's':
+        duration = line.split()[1]
+        if not(duration.isdigit()) or duration < 0:
+            print("Unknown duration input")
+        else:
+            sendCommand(COMMAND_BACK, params=duration)
+    elif line.startswith() == 'x':
+        duration = line.split()[1]
+        if not(duration.isdigit()) or duration < 0:
+            print("Unknown duration input")
+        else:
+            sendCommand(COMMAND_STOP, params=duration)
     else:
         print(f"Unknown input: '{line}'. Valid: e, c, p, l")
 
