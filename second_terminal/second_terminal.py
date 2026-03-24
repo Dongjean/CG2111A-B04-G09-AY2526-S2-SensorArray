@@ -46,6 +46,12 @@ import struct
 import sys
 import time
 import serial
+import os
+
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+sys.path.append(parent_dir)
+
 from packets import *
 
 # net_utils is imported with an absolute import because this script is designed
