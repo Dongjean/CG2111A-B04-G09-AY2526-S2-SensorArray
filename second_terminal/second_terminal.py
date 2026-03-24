@@ -45,6 +45,8 @@ import select
 import struct
 import sys
 import time
+import serial
+from packets import *
 
 # net_utils is imported with an absolute import because this script is designed
 # to be run directly (python3 second_terminal/second_terminal.py), which adds
@@ -59,32 +61,6 @@ from net_utils import TCPClient, sendTPacketFrame, recvTPacketFrame
 # Change PI_HOST to the Pi's IP address if you run this from a different machine.
 PI_HOST = 'localhost'
 PI_PORT = 65432
-
-
-# ---------------------------------------------------------------------------
-# TPacket constants
-# ---------------------------------------------------------------------------
-# IMPORTANT: keep these in sync with your pi_sensor.py and the Arduino sketch.
-
-PACKET_TYPE_COMMAND  = 0
-PACKET_TYPE_RESPONSE = 1
-PACKET_TYPE_MESSAGE  = 2
-
-COMMAND_ESTOP = 0
-
-RESP_OK     = 0
-RESP_STATUS = 1
-
-STATE_RUNNING = 0
-STATE_STOPPED = 1
-
-MAX_STR_LEN  = 32
-PARAMS_COUNT = 16
-TPACKET_SIZE = 1 + 1 + 2 + MAX_STR_LEN + (PARAMS_COUNT * 4)   # = 100
-TPACKET_FMT  = f'<BB2x{MAX_STR_LEN}s{PARAMS_COUNT}I'
-
-MAGIC      = b'\xDE\xAD'
-FRAME_SIZE = len(MAGIC) + TPACKET_SIZE + 1   # = 103
 
 
 # ---------------------------------------------------------------------------

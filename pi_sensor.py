@@ -16,12 +16,13 @@ Usage:
   python3 pi_sensor.py
 """
 
+from second_terminal import relay
 import struct
 import serial
 import time
 import sys
 import select
-
+from packets import *
 # ----------------------------------------------------------------
 # SERIAL PORT SETUP
 # ----------------------------------------------------------------
@@ -46,46 +47,6 @@ def closeSerial():
     global _ser
     if _ser and _ser.is_open:
         _ser.close()
-
-
-# ----------------------------------------------------------------
-# TPACKET CONSTANTS
-# (must match sensor_miniproject_template.ino)
-# ----------------------------------------------------------------
-
-PACKET_TYPE_COMMAND  = 0
-PACKET_TYPE_RESPONSE = 1
-PACKET_TYPE_MESSAGE  = 2
-
-COMMAND_ESTOP  = 0
-COMMAND_COLOUR = 1
-COMMAND_GO = 2
-COMMAND_CW = 3
-COMMAND_CCW = 4
-COMMAND_BACK = 5
-COMMAND_STOP = 6
-COMMAND_FASTER= 7
-COMMAND_SLOWER = 8
-
-RESP_OK     = 0
-RESP_STATUS = 1
-RESP_COLOUR = 2
-
-STATE_RUNNING = 0
-STATE_STOPPED = 1
-
-MAX_STR_LEN  = 32
-PARAMS_COUNT = 16
-
-TPACKET_SIZE = 1 + 1 + 2 + MAX_STR_LEN + (PARAMS_COUNT * 4)  # = 100
-TPACKET_FMT  = f'<BB2x{MAX_STR_LEN}s{PARAMS_COUNT}I'
-
-# ----------------------------------------------------------------
-# RELIABLE FRAMING: magic number + XOR checksum
-# ----------------------------------------------------------------
-
-MAGIC = b'\xDE\xAD'          # 2-byte magic number (0xDEAD)
-FRAME_SIZE = len(MAGIC) + TPACKET_SIZE + 1   # 2 + 100 + 1 = 103
 
 
 def computeChecksum(data: bytes) -> int:
@@ -273,7 +234,7 @@ def handleColorCommand():
 
 # TODO (Activity 3): import the camera library provided (alex_camera.py).
 import alex_camera as alex
-#_camera = alex.cameraOpen()          # TODO (Activity 3): open the camera (cameraOpen()) before first use.
+_camera = alex.cameraOpen()          # TODO (Activity 3): open the camera (cameraOpen()) before first use.
 _frames_remaining = 5   # frames remaining before further captures are refused
 
 
@@ -295,32 +256,6 @@ def handleCameraCommand():
         alex.renderGreyscaleFrame(frame)
         _frames_remaining -= 1
         print("There are " + str(_frames_remaining) + " frames remaining");
-
-
-# ----------------------------------------------------------------
-# ACTIVITY 4: LIDAR
-# ----------------------------------------------------------------
-
-# TODO (Activity 4): import from lidar.alex_lidar and lidar_example_cli_plot
-#   (lidar_example_cli_plot.py is in the same folder; alex_lidar.py is in lidar/).
-import lidar.alex_lidar as l
-import lidar_example_cli_plot as lidarEX
-
-
-def handleLidarCommand():
-    """
-    TODO (Activity 4): perform a single LIDAR scan and render it.
-
-    Gate on E-Stop state, then use the LIDAR library to capture one scan
-    and the CLI plot helpers to display it.
-    """
-    # TODO
-    if isEstopActive():
-        print("cannot use lidar as E-Stop has been activated")
-    else:
-        lidarEX.plot_single_scan()
-
-
 
 # ----------------------------------------------------------------
 # COMMAND-LINE INTERFACE
@@ -349,8 +284,6 @@ def handleUserInput(line):
     # TODO (Activities 3 & 4): add elif branches for 'p' (camera) and 'l' (LIDAR).
     elif line == 'p':
         handleCameraCommand()
-    elif line == 'l':
-        handleLidarCommand()
     elif line.split()[0] in "wasd":
         if len(line.split()) >= 2:
             cmd = line.split()[0]
@@ -375,7 +308,7 @@ def handleUserInput(line):
     elif line == '-':
         sendCommand(COMMAND_SLOWER)
     else:
-        print(f"Unknown input: '{line}'. Valid: e, c, p, l")
+        print(f"Unknown input: '{line}'. ecpwasdx+-")
 
 
 def runCommandInterface():
@@ -393,6 +326,7 @@ def runCommandInterface():
             pkt = receiveFrame()
             if pkt:
                 printPacket(pkt)
+                relay.onPacketReceived(packFrame(pkt['packetType'], pkt['command'], pkt['data'], pkt['params']))
 
         rlist, _, _ = select.select([sys.stdin], [], [], 0)
         if rlist:
@@ -401,7 +335,7 @@ def runCommandInterface():
                 time.sleep(0.05)
                 continue
             handleUserInput(line)
-
+        relay.checkSecondTerminal(_ser)
         time.sleep(0.05)
 
 
@@ -411,6 +345,7 @@ def runCommandInterface():
 
 if __name__ == '__main__':
     openSerial()
+    relay.start()
     try:
         runCommandInterface()
     except KeyboardInterrupt:
@@ -419,8 +354,6 @@ if __name__ == '__main__':
         # TODO (Activities 3 & 4): close the camera and disconnect the LIDAR here if you opened them.
         if '_camera' in globals() and _camera:
             alex.cameraClose(_camera)  # Assuming standard close function in your library
-            
-        if '_lidar' in globals() and _lidar:
-            # Stops the motor, sets PWM to 0, and closes the port
-            l.lidarDisconnect(_lidar)
+        
         closeSerial()
+        relay.shutdown()
