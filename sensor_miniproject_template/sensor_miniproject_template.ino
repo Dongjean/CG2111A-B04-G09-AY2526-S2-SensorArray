@@ -42,6 +42,37 @@ int increment = 5;
 // estopStage == 0 means that button is unpressed rn
 // estopStage == 1 means that button is pressed rn
 volatile char estopStage = 0;
+
+// --- Robot Arm Definitions ---
+const int BASE_MASK     = (1 << PK1); // Analog Pin A9
+const int SHOULDER_MASK = (1 << PK2); // Analog Pin A10 (Right shoulder)
+const int ELBOW_MASK    = (1 << PK3); // Analog Pin A11 (Left shoulder)
+const int GRIPPER_MASK  = (1 << PK4); // Analog Pin A12
+
+// Calibration 
+const int BASE_MIN = 1000, BASE_MAX = 5000, BASE_RANGE = BASE_MAX - BASE_MIN;
+const int SHOULDER_MIN = 1000, SHOULDER_MAX = 2778, SHOULDER_RANGE = SHOULDER_MAX - SHOULDER_MIN;
+const int ELBOW_MIN = 1000, ELBOW_MAX = 2778, ELBOW_RANGE = ELBOW_MAX - ELBOW_MIN;
+const int GRIPPER_MIN = 1667, GRIPPER_MAX = 2778, GRIPPER_RANGE = GRIPPER_MAX - GRIPPER_MIN;
+
+const int BASE_TPD     = BASE_RANGE / 180;
+const int SHOULDER_TPD = SHOULDER_RANGE / 180;
+const int ELBOW_TPD    = ELBOW_RANGE / 180;
+const int GRIPPER_TPD  = GRIPPER_RANGE / 180;
+
+volatile int totalTime = 0;
+volatile int baseTime     = BASE_RANGE/2 + BASE_MIN;
+volatile int shoulderTime = SHOULDER_RANGE/2 + SHOULDER_MIN;
+volatile int elbowTime    = ELBOW_RANGE/2 + ELBOW_MIN;
+volatile int gripperTime  = GRIPPER_RANGE/2 + GRIPPER_MIN;
+
+volatile int baseTarget     = baseTime;
+volatile int shoulderTarget = shoulderTime;
+volatile int elbowTarget    = elbowTime;
+volatile int gripperTarget  = gripperTime;
+volatile int part = 0;
+
+uint32_t lastArmUpdate = 0;
 // =============================================================
 // Packet helpers (pre-implemented for you)
 // =============================================================
@@ -65,6 +96,20 @@ static void sendResponse(TResponseType resp, uint32_t param) {
 static void sendStatus(TState state) {
   sendResponse(RESP_STATUS, (uint32_t)state);
 }
+
+void smoothen() {
+  uint32_t now = getTicks(); // Assumes your 100us timer wrapper
+  if (now - lastArmUpdate >= 100) { 
+    cli();
+    baseTime     = stepTowards(baseTime, baseTarget, BASE_TPD);
+    shoulderTime = stepTowards(shoulderTime, shoulderTarget, SHOULDER_TPD);
+    elbowTime    = stepTowards(elbowTime, elbowTarget, ELBOW_TPD);
+    gripperTime  = stepTowards(gripperTime, gripperTarget, GRIPPER_TPD);
+    sei(); 
+    lastArmUpdate = now;
+  }
+}
+
 
 // =============================================================
 // E-Stop state machine
@@ -132,26 +177,59 @@ static void colorSensorInit() {
   // Do NOT enable INT5 yet — only enabled during measurement
 }
 
-/*
- * Measure one color channel by counting rising edges over 100 ms.
- *
- * Datasheet Table 1 — Photodiode type selection:
- *   S2=L, S3=L  ->  Red
- *   S2=H, S3=H  ->  Green
- *   S2=L, S3=H  ->  Blue
- *   S2=H, S3=L  ->  Clear (not used)
- *
- * Datasheet p.7: After any transition of S2/S3, the output-scaling
- * counter registers are cleared and a new valid period begins on the
- * next pulse of the principal frequency.  Response time is one period
- * of the new frequency plus 1 µs.
- *
- * At 20% scaling with max full-scale of 120 kHz, the longest period
- * is ~8.3 µs, so a few milliseconds of settle time is more than
- * sufficient.  We use a generous 10 ms to guarantee clean data.
- *
- * Returns the raw edge count (caller multiplies by 10 for Hz).
- */
+void armInit() {
+  // Set PK1-PK4 (A9-A12) as outputs
+  DDRK |= BASE_MASK | SHOULDER_MASK | ELBOW_MASK | GRIPPER_MASK;
+  PORTK &= ~(BASE_MASK | SHOULDER_MASK | ELBOW_MASK | GRIPPER_MASK);
+  
+  // Configure Timer5 for CTC mode, Top = OCR5A, Prescaler 8
+  TCCR5A = 0;
+  TCNT5 = 0;
+  OCR5A = 1000;
+  TIMSK5 |= (1 << OCIE5A);
+  TCCR5B = (1 << WGM52) | (1 << CS51); 
+}
+
+// Timer5 ISR using PORTK
+ISR(TIMER5_COMPA_vect) { 
+  switch (part) {
+    case 0: // Base (A9)
+      PORTK |= BASE_MASK;
+      OCR5A = baseTime;
+      totalTime += baseTime;
+      part = 1;
+      break;
+    case 1: // Shoulder (A10)
+      PORTK &= ~BASE_MASK;
+      PORTK |= SHOULDER_MASK;
+      OCR5A = shoulderTime;
+      totalTime += shoulderTime;
+      part = 2;
+      break;
+    case 2: // Elbow (A11)
+      PORTK &= ~SHOULDER_MASK;
+      PORTK |= ELBOW_MASK;
+      OCR5A = elbowTime;
+      totalTime += elbowTime;
+      part = 3;
+      break;
+    case 3: // Gripper (A12)
+      PORTK &= ~ELBOW_MASK;
+      PORTK |= GRIPPER_MASK;
+      OCR5A = gripperTime;
+      totalTime += gripperTime;
+      part = 4;
+      break;
+    case 4: // Wait state (Padding to 20ms)
+      PORTK &= ~GRIPPER_MASK;
+      OCR5A = 40000U - totalTime;
+      totalTime = 0;
+      part = 0;
+      break;
+  }
+}
+
+
 static uint32_t measureChannel(uint8_t s2High, uint8_t s3High) {
   // Set S2
   if (s2High)
@@ -473,6 +551,35 @@ static void handleCommand(const TPacket *cmd) {
         strncpy(pkt.data, message, sizeof(pkt.data) - 1);
         pkt.data[sizeof(pkt.data) - 1] = '\0';
         sendFrame(&pkt);
+      }
+      break;
+
+    case COMMAND_ARM_MOVE:
+      {
+        // Extract the variables from the packet
+        uint32_t servoID = cmd->params[0];
+        long angle = constrain(cmd->params[1], 0, 180);
+
+        // Route the angle to the correct target variable
+        switch (servoID) {
+          case SERVO_BASE:
+            baseTarget = (angle * BASE_RANGE) / 180 + BASE_MIN;
+            break;
+            
+          case SERVO_SHOULDER:
+            shoulderTarget = (angle * SHOULDER_RANGE) / 180 + SHOULDER_MIN;
+            break;
+            
+          case SERVO_ELBOW:
+            elbowTarget = (angle * ELBOW_RANGE) / 180 + ELBOW_MIN;
+            break;
+            
+          case SERVO_GRIPPER:
+            gripperTarget = (angle * GRIPPER_RANGE) / 180 + GRIPPER_MIN;
+            break;
+        }
+
+        sendResponse(RESP_OK, 0);
       }
       break;
     }

@@ -257,6 +257,31 @@ def handleCameraCommand():
         _frames_remaining -= 1
         print("There are " + str(_frames_remaining) + " frames remaining");
 
+def handleArmCommand(line):
+    # Example input: "b 90" (Base to 90 degrees)
+    parts = line.split()
+    if len(parts) == 2 and parts[1].isdigit():
+        angle = int(parts[1])
+        
+        # Initialize our 16-parameter list
+        params_list = [0] * PARAMS_COUNT
+        params_list[1] = angle  # params[1] is always the target angle
+        
+        # Determine WHICH servo to move and put it in params[0]
+        if parts[0] == 'b':
+            params_list[0] = SERVO_BASE
+        elif parts[0] == 's':
+            params_list[0] = SERVO_SHOULDER
+        elif parts[0] == 'e':
+            params_list[0] = SERVO_ELBOW
+        elif parts[0] == 'g':
+            params_list[0] = SERVO_GRIPPER
+        else:
+            print("Unknown arm part. Use b, s, e, or g.")
+            return
+
+        # Send the single, unified command!
+        sendCommand(COMMAND_ARM_MOVE, params=params_list)
 # ----------------------------------------------------------------
 # COMMAND-LINE INTERFACE
 # ----------------------------------------------------------------
