@@ -1,12 +1,21 @@
 #**Pins We Used**
-###E-Stop Pin: PD2 (Digital Pin 19), INT0
+Encoder right: 53
+Encoder left: 52
 
-###Colour Sensor:
-  S0: PA0 (Digital Pin 22)
-  S1: PA1 (Digital Pin 23)
-  S2: PA2 (Digital Pin 24)
-  S3: PA3 (Digital Pin 25)
-  Out: PE5 (Digital Pin 3), PWM
+Colour sensor
+Output: A8 (PWM)
+S0: 22
+S1: 23
+S2: 24
+S3: 25
+
+Robot arm
+Base: A9
+Right shoulder: A10
+Left shoulder: A11
+Gripper: A12
+
+Estop: 19 (INT2)
 
 #**How to Compile Arduino**
 arduino-cli compile -b arduino:avr:mega -p /dev/ttyACM0 --upload sensor_miniproject_template.ino
