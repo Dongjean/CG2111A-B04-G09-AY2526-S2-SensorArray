@@ -47,6 +47,8 @@ import sys
 import time
 import serial
 import os
+import tty
+import termios
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -146,6 +148,22 @@ def _printPacket(pkt):
 # Input handling
 # ---------------------------------------------------------------------------
 
+def get_key():
+    """ Captures a single keypress or escape sequence """
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+
+        # Arrow keys are sent as escape sequences: \x1b[A, \x1b[B, etc.
+        if ch == '\x1b':
+            ch += sys.stdin.read(2)
+        return ch
+    finally:
+        # Restore terminal settings regardless of what happens
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
 def _handleInput(line: str, client: TCPClient):
     """Handle one line of keyboard input."""
     line = line.strip().lower()
@@ -199,6 +217,7 @@ def run():
             rlist, _, _ = select.select([sys.stdin], [], [], 0)
             if rlist:
                 line = sys.stdin.readline()
+                #key = get_key()
                 _handleInput(line, client)
 
             time.sleep(0.02)

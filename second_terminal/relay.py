@@ -30,14 +30,17 @@ Student tasks (Activity 3)
 """
 
 from .net_utils import TCPServer, sendTPacketFrame, recvTPacketFrame
-
+import ssl
 
 # ============================================================
 # Configuration
 # ============================================================
 
 SECOND_TERM_PORT    = 65432   # TCP port second_terminal.py connects to
-SECOND_TERM_TIMEOUT = 30      # Seconds to wait for second_terminal.py to connect
+SECOND_TERM_TIMEOUT = 300      # Seconds to wait for second_terminal.py to connect
+TLS_ENABLED = True
+TLS_CERT_PATH = 'certs/server.crt'
+TLS_KEY_PATH = 'certs/server.key'
 
 
 # ============================================================
@@ -51,6 +54,12 @@ _st_conn   = None   # Active client socket from second_terminal.py
 # ============================================================
 # Second terminal relay
 # ============================================================
+
+def _make_server_ssl_context():
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(TLS_CERT_PATH, TLS_KEY_PATH)
+    return ctx
 
 def onPacketReceived(raw_frame: bytes):
     """Forward a raw TPacket frame to second_terminal.py.
@@ -102,7 +111,9 @@ def start():
     """
     global _st_server, _st_conn
 
-    _st_server = TCPServer(port=SECOND_TERM_PORT)
+    #_st_server = TCPServer(port=SECOND_TERM_PORT)
+    ssl_context = _make_server_ssl_context() if TLS_ENABLED else None
+    _st_server = TCPServer(port=SECOND_TERM_PORT, ssl_context=ssl_context)
     if _st_server.start():
         print("[relay] Waiting for second_terminal.py to connect "
               "(open a new terminal: python3 second_terminal/second_terminal.py)...")
