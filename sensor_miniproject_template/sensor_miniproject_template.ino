@@ -8,12 +8,20 @@
 #define S1_BIT (1 << PA1) // D23
 #define S2_BIT (1 << PA2) // D24
 #define S3_BIT (1 << PA3) // D25
-#define OUT_BIT (1 << PE5)
+#define OUT_BIT (1 << PK0) // A8
 
 #define FRONT_LEFT   4 // M4 on the driver shield
 #define FRONT_RIGHT  1 // M1 on the driver shield
 #define BACK_LEFT    3 // M3 on the driver shield
 #define BACK_RIGHT   2 // M2 on the driver shield
+
+#define ENCODER_LEFT (1 << PB1) // digital 52 PCINT1
+#define ENCODER_RIGHT (1 << PB0) //digital 53 PCINT0
+
+#define ARM_BASE (1 << PK1) // A9
+#define ARM_SHOULDER (1 << PK2) // A10
+#define ARM_ELBOW (1 << PK3) // A11
+#define ARM_GRIPPER (1 << PK4) // A12
 
 // Direction values
 typedef enum dir
@@ -45,8 +53,8 @@ volatile char estopStage = 0;
 
 // --- Robot Arm Definitions ---
 const int BASE_MASK     = (1 << PK1); // Analog Pin A9
-const int SHOULDER_MASK = (1 << PK2); // Analog Pin A10 (Right shoulder)
-const int ELBOW_MASK    = (1 << PK3); // Analog Pin A11 (Left shoulder)
+const int SHOULDER_MASK = (1 << PK2); // Analog Pin A10 
+const int ELBOW_MASK    = (1 << PK3); // Analog Pin A11
 const int GRIPPER_MASK  = (1 << PK4); // Analog Pin A12
 
 // Calibration 
@@ -72,7 +80,8 @@ volatile int elbowTarget    = elbowTime;
 volatile int gripperTarget  = gripperTime;
 volatile int part = 0;
 
-uint32_t lastArmUpdate = 0;
+unsigned long justNow = 0;
+unsigned long msPerDeg = 10;
 // =============================================================
 // Packet helpers (pre-implemented for you)
 // =============================================================
@@ -111,18 +120,23 @@ int stepTowards(int current, int target, int stepSize) {
 
 void smoothen() {
   uint32_t now = timerTicks; // Assumes your 100us timer wrapper
-  if (now - lastArmUpdate >= 100) { 
+  if (now - justNow >= msPerDeg) { 
     cli();
     baseTime     = stepTowards(baseTime, baseTarget, BASE_TPD);
     shoulderTime = stepTowards(shoulderTime, shoulderTarget, SHOULDER_TPD);
     elbowTime    = stepTowards(elbowTime, elbowTarget, ELBOW_TPD);
     gripperTime  = stepTowards(gripperTime, gripperTarget, GRIPPER_TPD);
     sei(); 
-    lastArmUpdate = now;
+    justNow = now;
   }
 }
 
-
+void homeAll() {
+  baseTarget = (BASE_RANGE)/2 + BASE_MIN;
+  shoulderTarget = (SHOULDER_RANGE)/2 + SHOULDER_MIN;
+  elbowTarget = (ELBOW_RANGE)/2 + ELBOW_MIN;
+  gripperTarget = (GRIPPER_RANGE)/2 + GRIPPER_MIN;
+}
 // =============================================================
 // E-Stop state machine
 // =============================================================
@@ -180,8 +194,8 @@ static void colorSensorInit() {
   PORTA &= ~(S2_BIT | S3_BIT);
 
   // Sensor OUT pin PE5 as input, no internal pull-up
-  DDRE  &= ~OUT_BIT;
-  PORTE &= ~OUT_BIT;
+  DDRK &= ~OUT_BIT;
+  PORTK &= ~OUT_BIT;
 
   // Configure INT5 for rising edge detection
   // EICRB: ISC51=1, ISC50=1 -> rising edge on INT5
@@ -265,7 +279,7 @@ static uint32_t measureChannel(uint8_t s2High, uint8_t s3High) {
   // Reset edge counter, then enable INT5
   cli();
   edgeCount = 0;
-  EIMSK |= (1 << INT5);    // Enable INT5
+  EIMSK |= (1 << INT5); // Enable INT5
   sei();
 
   // Measurement window: 100 ms (1000 ticks × 100 µs)
@@ -569,8 +583,8 @@ static void handleCommand(const TPacket *cmd) {
     case COMMAND_ARM_MOVE:
       {
         // Extract the variables from the packet
-        uint32_t servoID = cmd->params[0];
-        long angle = constrain(cmd->params[1], 0, 180);
+        uint32_t servoID = cmd->params[1];
+        long angle = constrain(cmd->params[2], 0, 180);
 
         // Route the angle to the correct target variable
         switch (servoID) {
@@ -588,6 +602,10 @@ static void handleCommand(const TPacket *cmd) {
             
           case SERVO_GRIPPER:
             gripperTarget = (angle * GRIPPER_RANGE) / 180 + GRIPPER_MIN;
+            break;
+
+          case SERVO_SPEED:
+            msPerDeg = angle;
             break;
         }
 
@@ -622,7 +640,7 @@ void setup() {
   OCR2A = 199;
   EIMSK |= 0b00000100;
   TCCR2B = 0b00000010;  //prescaler 8
-
+  armInit();
   colorSensorInit();
   sei();
 }

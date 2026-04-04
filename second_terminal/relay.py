@@ -71,7 +71,7 @@ def onPacketReceived(raw_frame: bytes):
                    just received from the Arduino.
     """
     global _st_conn
-
+    print("hi im relay")
     if _st_conn is not None:
         ok = sendTPacketFrame(_st_conn, raw_frame)
         if not ok:
@@ -118,8 +118,11 @@ def start():
         print("[relay] Waiting for second_terminal.py to connect "
               "(open a new terminal: python3 second_terminal/second_terminal.py)...")
         _st_conn = _st_server.accept(timeout=SECOND_TERM_TIMEOUT)
+        print("connect")
         if _st_conn is None:
             print(f"[relay] No second terminal connected within {SECOND_TERM_TIMEOUT}s. Continuing without it.")
+        else:
+            print("konnec")
 
 
 def shutdown():

@@ -81,7 +81,10 @@ def _recvExact(sock, n: int):
         The bytes read, or None on error or connection close.
     """
     buf = b''
+    print("i")
     while len(buf) < n:
+        print(n - len(buf))
+        print(n)
         try:
             chunk = sock.recv(n - len(buf))
         except (OSError, ConnectionResetError) as err:
@@ -91,6 +94,7 @@ def _recvExact(sock, n: int):
             # Remote end closed the connection cleanly.
             return None
         buf += chunk
+        print(buf)
     return buf
 
 
@@ -191,11 +195,17 @@ class TCPServer:
             print("[TCPServer] Server not started. Call start() first.")
             return None
         self._server_sock.settimeout(timeout)
+        print("starting try")
+        print(self._server_sock)
         try:
             conn, addr = self._server_sock.accept()
+            print("wazzu")
             if self.ssl_context:
+                print("and here")
                 conn = self.ssl_context.wrap_socket(conn, server_side=True)
-            conn.setblocking(False)
+                print("after her")
+            print("nihaima")
+            conn.setblocking(True)
             self.conn = conn
             print(f"[TCPServer] Client connected from {addr}")
             return conn
@@ -278,8 +288,9 @@ class TCPClient:
                     s,
                     server_hostname=self.server_hostname or self.host,
                 )
-            s.setblocking(False)
+            s.setblocking(True)
             self.sock = s
+            print("connected!!")
             print(f"[TCPClient] Connected to {self.host}:{self.port}")
             return True
         except (OSError, socket.timeout) as err:

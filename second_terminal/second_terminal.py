@@ -49,6 +49,7 @@ import serial
 import os
 import tty
 import termios
+import ssl
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -188,7 +189,10 @@ def _handleInput(line: str, client: TCPClient):
 # ---------------------------------------------------------------------------
 
 def run():
-    client = TCPClient(host=PI_HOST, port=PI_PORT)
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    client = TCPClient(host=PI_HOST, port=PI_PORT, ssl_context = context)
     print(f"[second_terminal] Connecting to pi_sensor.py at {PI_HOST}:{PI_PORT}...")
 
     if not client.connect(timeout=10.0):

@@ -14,6 +14,7 @@
 #define SERVO_SHOULDER 1
 #define SERVO_ELBOW 2
 #define SERVO_GRIPPER 3
+#define SERVO_SPEED 4
 
 // =============================================================
 // TPacket protocol
@@ -28,7 +29,6 @@ typedef enum {
 typedef enum {
     COMMAND_ESTOP = 0,
     COMMAND_COLOUR = 1,
-    // TODO (Activity 2): add your own command type for the color sensor
     COMMAND_GO = 2,
     COMMAND_CW = 3,
     COMMAND_CCW = 4,
@@ -43,7 +43,6 @@ typedef enum {
     RESP_OK     = 0,
     RESP_STATUS = 1,
     RESP_COLOUR = 2,
-    // TODO (Activity 2): add your own response type for the color sensor
 } TResponseType;
 
 typedef enum {
