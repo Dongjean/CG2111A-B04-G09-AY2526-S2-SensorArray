@@ -15,8 +15,9 @@
 #define BACK_LEFT    3 // M3 on the driver shield
 #define BACK_RIGHT   2 // M2 on the driver shield
 
-#define ENCODER_LEFT (1 << PB1) // digital 52 PCINT1
-#define ENCODER_RIGHT (1 << PB0) //digital 53 PCINT0
+// Both trigger PCINT1_vect
+#define ENCODER_LEFT (1 << PJ0) // digital 15 PCINT9
+#define ENCODER_RIGHT (1 << PJ1) //digital 14 PCINT10
 
 #define ARM_BASE (1 << PK1) // A9
 #define ARM_SHOULDER (1 << PK2) // A10
@@ -88,7 +89,7 @@ unsigned long msPerDeg = 10;
 volatile long leftTicks = 0;
 volatile long rightTicks = 0;
 
-volatile uint8_t lastPortB = 0;
+volatile uint8_t lastPortJ = 0;
 int lastPIDTime = 0;
 // =============================================================
 // Packet helpers (pre-implemented for you)
@@ -327,29 +328,31 @@ static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 // Motor control
 
-ISR(PCINT0_vect) {
-  uint8_t currentPortB = PINB;
-  uint8_t changedBits = currentPortB ^ lastPortB;
+ISR(PCINT1_vect) {
+  uint8_t currentPortJ = PINJ;
+  uint8_t changedBits = currentPortJ ^ lastPortJ;
 
   if (changedBits & ENCODER_LEFT) {
-    if (moving && (moveStateL == FORWARD)) leftTicks++;
-    else leftTicks--;
+    //leftTicks++;
+    if ((moveStateL == FORWARD)) leftTicks++;
+    else if ((moveStateL == BACKWARD)) leftTicks--;
   }
 
   // Did Pin 52 (Right Encoder, PB1) change?
   if (changedBits & ENCODER_RIGHT) {
-    if (moving && (moveStateR == FORWARD)) rightTicks++;
-    else rightTicks--;
+    //rightTicks++;
+    if ((moveStateR == FORWARD)) rightTicks++;
+    else if ((moveStateR == BACKWARD)) rightTicks--;
   }
 
-  lastPortB = currentPortB;
+  lastPortJ = currentPortJ;
 }
 
 void encoderInit() {
-  DDRB &= ~(ENCODER_LEFT | ENCODER_RIGHT);
-  PCICR |= (1 << PCIE0);
-  PCMSK0 |= (1 << PCINT0) | (1 << PCINT1);
-  lastPortB = PINB;
+  DDRJ &= ~(ENCODER_LEFT | ENCODER_RIGHT);
+  PCICR |= (1 << PCIE1);
+  PCMSK1 |= (1 << PCINT9) | (1 << PCINT10);
+  lastPortJ = PINJ;
 }
 
 void move(int direction, long distance=0)
@@ -370,6 +373,8 @@ void move(int direction, long distance=0)
     motorFR.setSpeed(speed);
     motorBL.setSpeed(speed);
     motorBR.setSpeed(speed);
+    leftTicks = 0;
+    rightTicks = 0;
     moveStartTicks = abs(leftTicks);
     moveDistance = distance;
     moving = 1;
@@ -425,10 +430,10 @@ void pidMotorSync(int leftSpeed, int rightSpeed) {
     mError = abs(rightTicks) - abs(leftTicks);
     mError = mError / (256);
     
-    motorFL.setSpeed(constrain((abs(leftSpeed) + 2 * mError), 0, 255));
-    motorBL.setSpeed(constrain((abs(leftSpeed) + 2 * mError), 0, 255));
-    motorFR.setSpeed(constrain((abs(rightSpeed) - 2 * mError), 0, 255));
-    motorBR.setSpeed(constrain((abs(rightSpeed) - 2 * mError), 0, 255));
+    motorFL.setSpeed(constrain((abs(leftSpeed) + 5 * mError), 0, 255));
+    motorBL.setSpeed(constrain((abs(leftSpeed) + 5 * mError), 0, 255));
+    motorFR.setSpeed(constrain((abs(rightSpeed) - 5 * mError), 0, 255));
+    motorBR.setSpeed(constrain((abs(rightSpeed) - 5 * mError), 0, 255));
   }
 }
 // =============================================================
@@ -718,7 +723,7 @@ void loop() {
     sendStatus(state);
   }
 
-  if (moving && (abs(abs(leftTicks) - moveStartTicks) >= moveDistance)) {
+  if (moving && (labs(leftTicks) >= moveDistance)) {
     {
       move(STOP);
       TPacket pkt;
@@ -731,7 +736,30 @@ void loop() {
     }
   } else if (moving) {
     pidMotorSync(speed, speed);
+    {
+      TPacket pkt;
+      memset(&pkt, 0, sizeof(pkt));
+      pkt.packetType = PACKET_TYPE_RESPONSE;
+      pkt.command = RESP_OK;
+      char buf[32];
+      snprintf(buf, sizeof(buf), "L:%ld D:%ld", leftTicks, moveDistance);
+      strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
+      pkt.data[sizeof(pkt.data) - 1] = '\0';
+      sendFrame(&pkt);
+    }
   }
+
+    {
+      TPacket pkt;
+      memset(&pkt, 0, sizeof(pkt));
+      pkt.packetType = PACKET_TYPE_RESPONSE;
+      pkt.command = RESP_OK;
+      char buf[32];
+      snprintf(buf, sizeof(buf), "L:%ld D:%ld", leftTicks, moveDistance);
+      strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
+      pkt.data[sizeof(pkt.data) - 1] = '\0';
+      sendFrame(&pkt);
+    }
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
   if (receiveFrame(&incoming)) {
