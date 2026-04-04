@@ -175,7 +175,36 @@ def _handleInput(line: str, client: TCPClient):
         frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_ESTOP)
         sendTPacketFrame(client.sock, frame)
         print("[second_terminal] Sent: E-STOP")
-
+    elif line.split()[0] in "wasd":
+        if len(line.split()) >= 2:
+            cmd = line.split()[0]
+            duration = line.split()[1]
+            if not(duration.isdigit()) or int(duration) < 0:
+                print("Unknown duration input")
+            else:
+                params = [0]*16
+                params[0] = int(duration)
+                if cmd == 'w':
+                    frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_GO, params=params)
+                    sendTPacketFrame(client.sock, frame)
+                elif cmd == 'a':
+                    frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_CCW, params=params)
+                    sendTPacketFrame(client.sock, frame)
+                elif cmd == 's':
+                    frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_BACK, params=params)
+                    sendTPacketFrame(client.sock, frame)
+                elif cmd == 'd':
+                    frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_CW, params=params)
+                    sendTPacketFrame(client.sock, frame)
+    elif line == 'x':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_STOP, params=params)
+        sendTPacketFrame(client.sock, frame)
+    elif line == '+':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_FASTER, params=params)
+        sendTPacketFrame(client.sock, frame)
+    elif line == '-':
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_SLOWER, params=params)
+        sendTPacketFrame(client.sock, frame)
     elif line == 'q':
         print("[second_terminal] Quitting.")
         raise KeyboardInterrupt
