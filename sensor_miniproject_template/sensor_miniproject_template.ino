@@ -41,10 +41,10 @@ AF_DCMotor motorBR(BACK_RIGHT);
 volatile uint32_t timerTicks = 0;
 volatile uint32_t lastTime = 0;
 volatile uint32_t currentTime = 0;
-uint32_t moveStartTime = 0;
-uint32_t moveDuration = 0;
+uint32_t moveStartTicks = 0;
+uint32_t moveDistance = 0;
 char moving = 0;
-int speed = 200;
+int speed = 150;
 int increment = 5;
 volatile int moveState = STOP;
 
@@ -174,6 +174,7 @@ ISR(INT2_vect) {
         buttonState = STATE_STOPPED;
         stateChanged = true;
         estopStage = 1;
+        move(STOP);
       } else {
         estopStage = 0;
       }
@@ -349,7 +350,7 @@ void encoderInit() {
   lastPortB = PINB;
 }
 
-void move(int direction, int duration=0)
+void move(int direction, int distance=0)
 {
   moveState = direction;
   if (direction == STOP) {
@@ -361,13 +362,12 @@ void move(int direction, int duration=0)
    
   } else {
     moving = 1;
-    moveStartTime = timerTicks;
-    moveDuration = duration;
     motorFL.setSpeed(speed);
     motorFR.setSpeed(speed);
     motorBL.setSpeed(speed);
     motorBR.setSpeed(speed);
-
+    moveStartTicks = abs(leftTicks);
+    moveDistance = distance;
     switch(direction)
     {
       case BACK:
@@ -394,17 +394,25 @@ void move(int direction, int duration=0)
         motorBL.run(FORWARD);
         motorBR.run(FORWARD); 
       break;
-      case STOP:
-      default:
-        motorFL.run(RELEASE);
-        motorFR.run(RELEASE);
-        motorBL.run(RELEASE);
-        motorBR.run(RELEASE); 
     }
   }
   
 }
 
+void pidMotorSync(int leftSpeed, int rightSpeed) {
+  double mError = 0;
+  if (leftSpeed == 0 || rightSpeed == 0) {
+    leftSpeed = 0;
+    rightSpeed = 0;
+  } else {
+    mError = abs(rightTicks) - abs(leftTicks);
+    
+    motorFL.setSpeed(constrain((abs(leftSpeed) + 5 * mError), 0, 255));
+    motorBL.setSpeed(constrain((abs(leftSpeed) + 5 * mError), 0, 255));
+    motorFR.setSpeed(constrain((abs(rightSpeed) - 5 * mError), 0, 255));
+    motorBR.setSpeed(constrain((abs(rightSpeed) - 5 * mError), 0, 255));
+  }
+}
 // =============================================================
 // Command handler
 // =============================================================
@@ -682,6 +690,7 @@ void setup() {
 }
 
 void loop() {
+  smoothen();
   // --- 1. Report any E-Stop state change to the Pi ---
   if (stateChanged) {
     cli();
@@ -691,7 +700,7 @@ void loop() {
     sendStatus(state);
   }
 
-  if (moving && timerTicks - moveStartTime >= moveDuration * 10) {
+  if (moving && abs(leftTicks) - moveStartTicks >= moveDistance) {
     {
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));
@@ -702,6 +711,8 @@ void loop() {
       move(STOP);
       sendFrame(&pkt);
     }
+  } else if (moving) {
+    pidMotorSync(speed, speed);
   }
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
