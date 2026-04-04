@@ -260,21 +260,21 @@ def handleCameraCommand():
 def handleArmCommand(line):
     # Example input: "b 90" (Base to 90 degrees)
     parts = line.split()
-    if len(parts) == 2 and parts[1].isdigit():
-        angle = int(parts[1])
+    if len(parts) == 3 and parts[2].isdigit():
+        angle = int(parts[2])
         
         # Initialize our 16-parameter list
         params_list = [0] * PARAMS_COUNT
         params_list[1] = angle  # params[1] is always the target angle
         
         # Determine WHICH servo to move and put it in params[0]
-        if parts[0] == 'b':
+        if parts[1] == 'b':
             params_list[0] = SERVO_BASE
-        elif parts[0] == 's':
+        elif parts[1] == 's':
             params_list[0] = SERVO_SHOULDER
-        elif parts[0] == 'e':
+        elif parts[1] == 'e':
             params_list[0] = SERVO_ELBOW
-        elif parts[0] == 'g':
+        elif parts[1] == 'g':
             params_list[0] = SERVO_GRIPPER
         else:
             print("Unknown arm part. Use b, s, e, or g.")
@@ -332,6 +332,8 @@ def handleUserInput(line):
         sendCommand(COMMAND_FASTER)
     elif line == '-':
         sendCommand(COMMAND_SLOWER)
+    elif line.split()[0] == 'b':
+        handleArmCommand(line);
     else:
         print(f"Unknown input: '{line}'. ecpwasdx+-")
 

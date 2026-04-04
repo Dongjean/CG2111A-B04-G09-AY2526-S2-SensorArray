@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 
+#define SERVO_BASE 0
+#define SERVO_SHOULDER 1
+#define SERVO_ELBOW 2
+#define SERVO_GRIPPER 3
+
 // =============================================================
 // TPacket protocol
 // =============================================================
@@ -31,6 +36,7 @@ typedef enum {
     COMMAND_STOP = 6,
     COMMAND_FASTER = 7,
     COMMAND_SLOWER = 8,
+    COMMAND_ARM_MOVE = 10
 } TCommandType;
 
 typedef enum {

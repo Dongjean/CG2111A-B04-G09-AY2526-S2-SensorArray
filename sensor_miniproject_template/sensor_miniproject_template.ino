@@ -97,8 +97,20 @@ static void sendStatus(TState state) {
   sendResponse(RESP_STATUS, (uint32_t)state);
 }
 
+int stepTowards(int current, int target, int stepSize) {
+  if (current < target) {
+    current += stepSize;
+    if (current > target) current = target;
+  } else if (current > target) {
+    current -= stepSize;
+    if (current < target) current = target; // so it dont bounce
+  }
+  //Serial.println(current);
+  return current;
+}
+
 void smoothen() {
-  uint32_t now = getTicks(); // Assumes your 100us timer wrapper
+  uint32_t now = timerTicks; // Assumes your 100us timer wrapper
   if (now - lastArmUpdate >= 100) { 
     cli();
     baseTime     = stepTowards(baseTime, baseTarget, BASE_TPD);
