@@ -41,12 +41,13 @@ AF_DCMotor motorBR(BACK_RIGHT);
 volatile uint32_t timerTicks = 0;
 volatile uint32_t lastTime = 0;
 volatile uint32_t currentTime = 0;
-uint32_t moveStartTicks = 0;
-uint32_t moveDistance = 0;
-char moving = 0;
+volatile long moveStartTicks = 0;
+volatile long moveDistance = 0;
+volatile char moving = 0;
 int speed = 150;
 int increment = 5;
-volatile int moveState = STOP;
+volatile int moveStateL = STOP;
+volatile int moveStateR = STOP;
 
 // estopStage == 0 means that button is unpressed rn
 // estopStage == 1 means that button is pressed rn
@@ -88,6 +89,7 @@ volatile long leftTicks = 0;
 volatile long rightTicks = 0;
 
 volatile uint8_t lastPortB = 0;
+int lastPIDTime = 0;
 // =============================================================
 // Packet helpers (pre-implemented for you)
 // =============================================================
@@ -174,7 +176,7 @@ ISR(INT2_vect) {
         buttonState = STATE_STOPPED;
         stateChanged = true;
         estopStage = 1;
-        move(STOP);
+        //move(STOP);
       } else {
         estopStage = 0;
       }
@@ -329,14 +331,14 @@ ISR(PCINT0_vect) {
   uint8_t currentPortB = PINB;
   uint8_t changedBits = currentPortB ^ lastPortB;
 
-  if (changedBits & (1 << PB0)) {
-    if (moving && (motorFL.getState() == FORWARD)) leftTicks++;
+  if (changedBits & ENCODER_LEFT) {
+    if (moving && (moveStateL == FORWARD)) leftTicks++;
     else leftTicks--;
   }
 
   // Did Pin 52 (Right Encoder, PB1) change?
-  if (changedBits & (1 << PB1)) {
-    if (moving && (motorFR.getState() == FORWARD)) rightTicks++;
+  if (changedBits & ENCODER_RIGHT) {
+    if (moving && (moveStateR == FORWARD)) rightTicks++;
     else rightTicks--;
   }
 
@@ -350,45 +352,60 @@ void encoderInit() {
   lastPortB = PINB;
 }
 
-void move(int direction, int distance=0)
+void move(int direction, long distance=0)
 {
-  moveState = direction;
   if (direction == STOP) {
     motorFL.run(RELEASE);
     motorFR.run(RELEASE);
     motorBL.run(RELEASE);
     motorBR.run(RELEASE); 
+    leftTicks = 0;
+    rightTicks = 0;
+    moveStartTicks = 0;
+    moveDistance = 0;
     moving = 0;
    
   } else {
-    moving = 1;
     motorFL.setSpeed(speed);
     motorFR.setSpeed(speed);
     motorBL.setSpeed(speed);
     motorBR.setSpeed(speed);
     moveStartTicks = abs(leftTicks);
     moveDistance = distance;
+    moving = 1;
     switch(direction)
     {
       case BACK:
+        moveStateL = BACKWARD;
+        moveStateR = BACKWARD;
+
         motorFL.run(FORWARD);
         motorFR.run(FORWARD);
         motorBL.run(BACKWARD);
         motorBR.run(FORWARD); 
       break;
       case GO:
+        moveStateL = FORWARD;
+        moveStateR = FORWARD;
+
         motorFL.run(BACKWARD);
         motorFR.run(BACKWARD);
         motorBL.run(FORWARD);
         motorBR.run(BACKWARD); 
       break;
       case CCW:
+        moveStateL = BACKWARD;
+        moveStateR = FORWARD;
+
         motorFL.run(FORWARD);
         motorFR.run(BACKWARD);
         motorBL.run(BACKWARD);
         motorBR.run(BACKWARD); 
       break;
       case CW:
+        moveStateL = FORWARD;
+        moveStateR = BACKWARD;
+
         motorFL.run(BACKWARD);
         motorFR.run(FORWARD);
         motorBL.run(FORWARD);
@@ -406,11 +423,12 @@ void pidMotorSync(int leftSpeed, int rightSpeed) {
     rightSpeed = 0;
   } else {
     mError = abs(rightTicks) - abs(leftTicks);
+    mError = mError / (256);
     
-    motorFL.setSpeed(constrain((abs(leftSpeed) + 5 * mError), 0, 255));
-    motorBL.setSpeed(constrain((abs(leftSpeed) + 5 * mError), 0, 255));
-    motorFR.setSpeed(constrain((abs(rightSpeed) - 5 * mError), 0, 255));
-    motorBR.setSpeed(constrain((abs(rightSpeed) - 5 * mError), 0, 255));
+    motorFL.setSpeed(constrain((abs(leftSpeed) + 2 * mError), 0, 255));
+    motorBL.setSpeed(constrain((abs(leftSpeed) + 2 * mError), 0, 255));
+    motorFR.setSpeed(constrain((abs(rightSpeed) - 2 * mError), 0, 255));
+    motorBR.setSpeed(constrain((abs(rightSpeed) - 2 * mError), 0, 255));
   }
 }
 // =============================================================
@@ -626,8 +644,8 @@ static void handleCommand(const TPacket *cmd) {
     case COMMAND_ARM_MOVE:
       {
         // Extract the variables from the packet
-        uint32_t servoID = cmd->params[1];
-        long angle = constrain(cmd->params[2], 0, 180);
+        uint32_t servoID = cmd->params[0];
+        long angle = constrain(cmd->params[1], 0, 180);
 
         // Route the angle to the correct target variable
         switch (servoID) {
@@ -700,15 +718,15 @@ void loop() {
     sendStatus(state);
   }
 
-  if (moving && abs(leftTicks) - moveStartTicks >= moveDistance) {
+  if (moving && (abs(abs(leftTicks) - moveStartTicks) >= moveDistance)) {
     {
+      move(STOP);
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));
       pkt.packetType = PACKET_TYPE_RESPONSE;
       pkt.command = RESP_OK;
       strncpy(pkt.data, "done moving", sizeof(pkt.data) - 1);
       pkt.data[sizeof(pkt.data) - 1] = '\0';
-      move(STOP);
       sendFrame(&pkt);
     }
   } else if (moving) {
