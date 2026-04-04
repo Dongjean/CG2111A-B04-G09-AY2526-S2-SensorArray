@@ -46,6 +46,7 @@ uint32_t moveDuration = 0;
 char moving = 0;
 int speed = 200;
 int increment = 5;
+volatile int moveState = STOP;
 
 // estopStage == 0 means that button is unpressed rn
 // estopStage == 1 means that button is pressed rn
@@ -82,6 +83,11 @@ volatile int part = 0;
 
 unsigned long justNow = 0;
 unsigned long msPerDeg = 10;
+
+volatile long leftTicks = 0;
+volatile long rightTicks = 0;
+
+volatile uint8_t lastPortB = 0;
 // =============================================================
 // Packet helpers (pre-implemented for you)
 // =============================================================
@@ -106,6 +112,7 @@ static void sendStatus(TState state) {
   sendResponse(RESP_STATUS, (uint32_t)state);
 }
 
+// arm commands
 int stepTowards(int current, int target, int stepSize) {
   if (current < target) {
     current += stepSize;
@@ -122,10 +129,10 @@ void smoothen() {
   uint32_t now = timerTicks; // Assumes your 100us timer wrapper
   if (now - justNow >= msPerDeg) { 
     cli();
-    baseTime     = stepTowards(baseTime, baseTarget, BASE_TPD);
+    baseTime = stepTowards(baseTime, baseTarget, BASE_TPD);
     shoulderTime = stepTowards(shoulderTime, shoulderTarget, SHOULDER_TPD);
-    elbowTime    = stepTowards(elbowTime, elbowTarget, ELBOW_TPD);
-    gripperTime  = stepTowards(gripperTime, gripperTarget, GRIPPER_TPD);
+    elbowTime = stepTowards(elbowTime, elbowTarget, ELBOW_TPD);
+    gripperTime = stepTowards(gripperTime, gripperTarget, GRIPPER_TPD);
     sei(); 
     justNow = now;
   }
@@ -136,6 +143,19 @@ void homeAll() {
   shoulderTarget = (SHOULDER_RANGE)/2 + SHOULDER_MIN;
   elbowTarget = (ELBOW_RANGE)/2 + ELBOW_MIN;
   gripperTarget = (GRIPPER_RANGE)/2 + GRIPPER_MIN;
+}
+
+void armInit() {
+  // Set PK1-PK4 (A9-A12) as outputs
+  DDRK |= BASE_MASK | SHOULDER_MASK | ELBOW_MASK | GRIPPER_MASK;
+  PORTK &= ~(BASE_MASK | SHOULDER_MASK | ELBOW_MASK | GRIPPER_MASK);
+  
+  // Configure Timer5 for CTC mode, Top = OCR5A, Prescaler 8
+  TCCR5A = 0;
+  TCNT5 = 0;
+  OCR5A = 1000;
+  TIMSK5 |= (1 << OCIE5A);
+  TCCR5B = (1 << WGM52) | (1 << CS51); 
 }
 // =============================================================
 // E-Stop state machine
@@ -203,18 +223,6 @@ static void colorSensorInit() {
   // Do NOT enable INT5 yet — only enabled during measurement
 }
 
-void armInit() {
-  // Set PK1-PK4 (A9-A12) as outputs
-  DDRK |= BASE_MASK | SHOULDER_MASK | ELBOW_MASK | GRIPPER_MASK;
-  PORTK &= ~(BASE_MASK | SHOULDER_MASK | ELBOW_MASK | GRIPPER_MASK);
-  
-  // Configure Timer5 for CTC mode, Top = OCR5A, Prescaler 8
-  TCCR5A = 0;
-  TCNT5 = 0;
-  OCR5A = 1000;
-  TIMSK5 |= (1 << OCIE5A);
-  TCCR5B = (1 << WGM52) | (1 << CS51); 
-}
 
 // Timer5 ISR using PORTK
 ISR(TIMER5_COMPA_vect) { 
@@ -316,14 +324,41 @@ static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 // Motor control
 
+ISR(PCINT0_vect) {
+  uint8_t currentPortB = PINB;
+  uint8_t changedBits = currentPortB ^ lastPortB;
+
+  if (changedBits & (1 << PB0)) {
+    if (moving && (motorFL.getState() == FORWARD)) leftTicks++;
+    else leftTicks--;
+  }
+
+  // Did Pin 52 (Right Encoder, PB1) change?
+  if (changedBits & (1 << PB1)) {
+    if (moving && (motorFR.getState() == FORWARD)) rightTicks++;
+    else rightTicks--;
+  }
+
+  lastPortB = currentPortB;
+}
+
+void encoderInit() {
+  DDRB &= ~(ENCODER_LEFT | ENCODER_RIGHT);
+  PCICR |= (1 << PCIE0);
+  PCMSK0 |= (1 << PCINT0) | (1 << PCINT1);
+  lastPortB = PINB;
+}
+
 void move(int direction, int duration=0)
 {
+  moveState = direction;
   if (direction == STOP) {
     motorFL.run(RELEASE);
     motorFR.run(RELEASE);
     motorBL.run(RELEASE);
     motorBR.run(RELEASE); 
     moving = 0;
+   
   } else {
     moving = 1;
     moveStartTime = timerTicks;
@@ -642,6 +677,7 @@ void setup() {
   TCCR2B = 0b00000010;  //prescaler 8
   armInit();
   colorSensorInit();
+  encoderInit();
   sei();
 }
 
