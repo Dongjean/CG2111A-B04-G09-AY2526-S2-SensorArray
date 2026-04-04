@@ -11,8 +11,8 @@ S3: 25
 
 Robot arm
 Base: A9
-Right shoulder: A10
-Left shoulder: A11
+Shoulder: A10
+Elbow: A11
 Gripper: A12
 
 Estop: 19 (INT2)
