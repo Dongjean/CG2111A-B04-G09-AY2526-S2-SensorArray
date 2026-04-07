@@ -2,22 +2,23 @@
 """
 shared_state.py - Shared state objects used between the SLAM process and the UI.
 
-ProcessSharedState holds the occupancy map and robot pose in structures that
-can be safely read and written by two separate Python processes:
-  - The SLAM process writes new pose estimates and map data as they are computed.
-  - The UI process reads them to render the map in the terminal.
+ProcessSharedState holds the occupancy map, robot pose, and path trail in
+structures that can be safely read and written by two separate Python processes.
 
-The map is stored in a multiprocessing.shared_memory block (1 MB for a
-1000x1000 map) to avoid copying it across the process boundary on every frame.
-All other values use multiprocessing.Value and multiprocessing.Array primitives
-which are backed by shared memory and are safe to read/write from both processes.
+Performance optimizations:
+  - Map shared memory initialized with numpy (memset) instead of byte-by-byte
+  - Path points read via numpy for bulk deserialization
+  - Zero-copy map access via numpy view of shared memory buffer
 """
 
 import ctypes
 import multiprocessing
 import multiprocessing.shared_memory
+import struct
 
-from settings import MAP_SIZE_PIXELS, UNKNOWN_BYTE
+import numpy as np
+
+from settings import MAP_SIZE_PIXELS, UNKNOWN_BYTE, MAX_PATH_POINTS
 
 
 class ProcessSharedState:
@@ -26,34 +27,26 @@ class ProcessSharedState:
     Create one instance in the UI (parent) process before spawning the SLAM
     (child) process, and pass it as an argument to the SLAM process function.
     Both processes can then read and write the fields directly.
-
-    Fields
-    ------
-    shm          - shared memory buffer holding MAP_SIZE_PIXELS^2 bytes
-                   (0=wall, 127=unknown, 255=free per BreezySLAM convention)
-    x_mm         - robot x position in mm
-    y_mm         - robot y position in mm
-    theta_deg    - robot heading in degrees (BreezySLAM convention: CCW from +x)
-    valid_points - number of valid LIDAR readings in the most recent scan
-    rounds_seen  - total number of LIDAR rotations processed so far
-    map_version  - incremented each time the map is updated (use to skip redraws)
-    pose_version - incremented each time the pose is updated
-    connected    - True once the LIDAR is connected and SLAM is running
-    stopped      - True once the SLAM process has exited
-    paused       - set to True from the UI to pause SLAM updates
-    status_note  - short human-readable status string (up to 127 bytes)
-    error_message - error description if the SLAM process encountered a problem
-    stop_event   - set this from the UI to ask the SLAM process to exit
     """
 
+    # Each path point is two doubles (x_mm, y_mm) = 16 bytes.
+    _PATH_POINT_SIZE = struct.calcsize('dd')
+
     def __init__(self):
+        map_size = MAP_SIZE_PIXELS * MAP_SIZE_PIXELS
+
         # Allocate shared memory for the occupancy map.
         self.shm = multiprocessing.shared_memory.SharedMemory(
-            create=True, size=MAP_SIZE_PIXELS * MAP_SIZE_PIXELS,
+            create=True, size=map_size,
         )
-        # Initialise all cells to "unknown".
-        for i in range(MAP_SIZE_PIXELS * MAP_SIZE_PIXELS):
-            self.shm.buf[i] = UNKNOWN_BYTE
+        # Fast initialization using numpy (memset-equivalent).
+        np.ndarray(map_size, dtype=np.uint8, buffer=self.shm.buf)[:] = UNKNOWN_BYTE
+
+        # Allocate shared memory for the path trail.
+        self.path_shm = multiprocessing.shared_memory.SharedMemory(
+            create=True, size=MAX_PATH_POINTS * self._PATH_POINT_SIZE,
+        )
+        self.path_count = multiprocessing.Value(ctypes.c_int, 0)
 
         # Robot pose (doubles for sub-mm precision).
         self.x_mm = multiprocessing.Value(ctypes.c_double, 0.0)
@@ -78,6 +71,64 @@ class ProcessSharedState:
         # Signal from the UI to ask the SLAM process to stop cleanly.
         self.stop_event = multiprocessing.Event()
 
+    def add_path_point(self, x_mm: float, y_mm: float):
+        """Append a path point to the trail buffer.
+
+        If the buffer is full, the oldest half of points are discarded to
+        make room (keeps the most recent trail).
+        """
+        count = self.path_count.value
+        if count >= MAX_PATH_POINTS:
+            half = MAX_PATH_POINTS // 2
+            src_offset = half * self._PATH_POINT_SIZE
+            length = (MAX_PATH_POINTS - half) * self._PATH_POINT_SIZE
+            data = bytes(self.path_shm.buf[src_offset:src_offset + length])
+            self.path_shm.buf[:length] = data
+            count = MAX_PATH_POINTS - half
+        offset = count * self._PATH_POINT_SIZE
+        struct.pack_into('dd', self.path_shm.buf, offset, x_mm, y_mm)
+        self.path_count.value = count + 1
+
+    def get_path_points_numpy(self) -> np.ndarray:
+        """Read all path points as a numpy array of shape (N, 2).
+
+        Returns a float64 array of [[x_mm, y_mm], ...].
+        Much faster than the Python-loop version for large point counts.
+        Returns an empty (0, 2) array if no points.
+        """
+        count = self.path_count.value
+        if count <= 0:
+            return np.empty((0, 2), dtype=np.float64)
+        nbytes = count * self._PATH_POINT_SIZE
+        raw = np.frombuffer(
+            bytes(self.path_shm.buf[:nbytes]), dtype=np.float64
+        )
+        return raw.reshape(count, 2)
+
+    def get_path_points(self) -> list[tuple[float, float]]:
+        """Read all path points from the trail buffer (list version).
+
+        Used by the save routines where a list is more convenient.
+        """
+        arr = self.get_path_points_numpy()
+        if arr.shape[0] == 0:
+            return []
+        return [(float(r[0]), float(r[1])) for r in arr]
+
+    def get_map_numpy_view(self) -> np.ndarray:
+        """Return a numpy view directly into the shared map memory.
+
+        This is ZERO-COPY — no 9MB memcpy.  The returned array is only
+        valid while the shared memory is alive.  Read what you need quickly.
+
+        Shape: (MAP_SIZE_PIXELS, MAP_SIZE_PIXELS), dtype uint8.
+        """
+        return np.ndarray(
+            (MAP_SIZE_PIXELS, MAP_SIZE_PIXELS),
+            dtype=np.uint8,
+            buffer=self.shm.buf,
+        )
+
     def set_status(self, msg: str):
         """Write a status string (truncated to 127 bytes)."""
         self.status_note.value = msg.encode('utf-8')[:127]
@@ -96,10 +147,15 @@ class ProcessSharedState:
         return val.decode('utf-8', errors='replace') if val else ''
 
     def cleanup(self):
-        """Release the shared memory block.  Call this in the UI process
+        """Release the shared memory blocks.  Call this in the UI process
         after the SLAM process has exited."""
         try:
             self.shm.close()
             self.shm.unlink()
+        except Exception:
+            pass
+        try:
+            self.path_shm.close()
+            self.path_shm.unlink()
         except Exception:
             pass
