@@ -197,13 +197,13 @@ def _handleInput(line: str, client: TCPClient):
                     frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_CW, params=params)
                     sendTPacketFrame(client.sock, frame)
     elif line == 'x':
-        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_STOP, params=params)
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_STOP)
         sendTPacketFrame(client.sock, frame)
     elif line == '+':
-        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_FASTER, params=params)
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_FASTER)
         sendTPacketFrame(client.sock, frame)
     elif line == '-':
-        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_SLOWER, params=params)
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_SLOWER)
         sendTPacketFrame(client.sock, frame)
     elif line == 'q':
         print("[second_terminal] Quitting.")
