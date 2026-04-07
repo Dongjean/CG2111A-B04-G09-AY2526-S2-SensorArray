@@ -1,0 +1,7 @@
+timestamp: 20260407_102219
+tag: exit
+map_size_pixels: 3000
+map_size_meters: 8
+robot_x_mm: 0.0
+robot_y_mm: 0.0
+robot_theta_deg: 0.0

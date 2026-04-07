@@ -1,0 +1,9 @@
+timestamp: 20260407_102926
+tag: autosave
+map_size_pixels: 1000
+map_size_meters: 8
+robot_x_mm: 4002.2
+robot_y_mm: 3997.5
+robot_theta_deg: -1.2
+path_points: 1
+  4000.0,4000.0

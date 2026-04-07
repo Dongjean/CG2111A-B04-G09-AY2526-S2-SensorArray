@@ -1,0 +1,14 @@
+timestamp: 20260407_103322
+tag: exit
+map_size_pixels: 1000
+map_size_meters: 8
+robot_x_mm: 4004.2
+robot_y_mm: 4024.8
+robot_theta_deg: 3.4
+path_points: 6
+  4000.0,4000.0
+  4002.1,4016.4
+  4001.0,4033.5
+  3991.9,4054.0
+  4001.3,4041.0
+  4007.2,4025.1

@@ -328,30 +328,27 @@ static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 // Motor control
 
-ISR(PCINT1_vect) {
-  uint8_t currentPortJ = PINJ;
-  uint8_t changedBits = currentPortJ ^ lastPortJ;
 
-  if (changedBits & ENCODER_LEFT) {
-    //leftTicks++;
+ISR(PCINT0_vect) {
+    leftTicks++;
     if ((moveStateL == FORWARD)) leftTicks++;
     else if ((moveStateL == BACKWARD)) leftTicks--;
-  }
+}
 
+ISR(PCINT1_vect) {
   // Did Pin 52 (Right Encoder, PB1) change?
-  if (changedBits & ENCODER_RIGHT) {
-    //rightTicks++;
+    rightTicks++;
     if ((moveStateR == FORWARD)) rightTicks++;
     else if ((moveStateR == BACKWARD)) rightTicks--;
-  }
 
-  lastPortJ = currentPortJ;
 }
 
 void encoderInit() {
   DDRJ &= ~(ENCODER_LEFT | ENCODER_RIGHT);
-  PCICR |= (1 << PCIE1);
+  DDRB &= ~((1 << PB3));
+  PCICR |= (1 << PCIE1) | (1 << PCIE0);
   PCMSK1 |= (1 << PCINT9) | (1 << PCINT10);
+  PCMSK0 |= (1 << PCINT3);
   lastPortJ = PINJ;
 }
 
@@ -736,17 +733,6 @@ void loop() {
     }
   } else if (moving) {
     pidMotorSync(speed, speed);
-    {
-      TPacket pkt;
-      memset(&pkt, 0, sizeof(pkt));
-      pkt.packetType = PACKET_TYPE_RESPONSE;
-      pkt.command = RESP_OK;
-      char buf[32];
-      snprintf(buf, sizeof(buf), "L:%ld D:%ld", leftTicks, moveDistance);
-      strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
-      pkt.data[sizeof(pkt.data) - 1] = '\0';
-      sendFrame(&pkt);
-    }
   }
 
     {
@@ -755,11 +741,12 @@ void loop() {
       pkt.packetType = PACKET_TYPE_RESPONSE;
       pkt.command = RESP_OK;
       char buf[32];
-      snprintf(buf, sizeof(buf), "L:%ld D:%ld", leftTicks, moveDistance);
+      snprintf(buf, sizeof(buf), "L:%ld R:%ld D:%ld Last:%d R:%d L:%d", leftTicks, rightTicks, moveDistance, lastPortJ, moveStateR == FORWARD, moveStateL == FORWARD);
       strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
       pkt.data[sizeof(pkt.data) - 1] = '\0';
       sendFrame(&pkt);
     }
+
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
   if (receiveFrame(&incoming)) {
