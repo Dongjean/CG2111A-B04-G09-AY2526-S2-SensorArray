@@ -10,10 +10,10 @@
 #define S3_BIT (1 << PA3) // D25
 #define OUT_BIT (1 << PD3) // A8
 
-#define FRONT_LEFT   4 // M4 on the driver shield
-#define FRONT_RIGHT  1 // M1 on the driver shield
-#define BACK_LEFT    3 // M3 on the driver shield
-#define BACK_RIGHT   2 // M2 on the driver shield
+#define FRONT_LEFT   2 // M4 on the driver shield
+#define FRONT_RIGHT  3 // M1 on the driver shield
+#define BACK_LEFT    1 // M3 on the driver shield
+#define BACK_RIGHT   4 // M2 on the driver shield
 
 // Both trigger PCINT1_vect
 #define ENCODER_LEFT (1 << PJ0) // digital 15 PCINT9
@@ -449,6 +449,7 @@ static void handleCommand(const TPacket *cmd) {
 
   switch (cmd->command) {
     case COMMAND_ESTOP:
+      move(STOP);
       cli();
       if (buttonState == STATE_RUNNING) {
         estopStage = 1;
@@ -715,6 +716,7 @@ void loop() {
     stateChanged = false;
     sei();
     sendStatus(state);
+    move(STOP);
   }
 
   if (moving && (labs(leftTicks) >= moveDistance)) {

@@ -235,7 +235,7 @@ def handleColorCommand():
 # TODO (Activity 3): import the camera library provided (alex_camera.py).
 import alex_camera as alex
 _camera = alex.cameraOpen()          # TODO (Activity 3): open the camera (cameraOpen()) before first use.
-_frames_remaining = 5   # frames remaining before further captures are refused
+_frames_remaining = 10   # frames remaining before further captures are refused
 
 
 def handleCameraCommand():
@@ -259,29 +259,53 @@ def handleCameraCommand():
 
 def handleArmCommand(line):
     # Example input: "b 90" (Base to 90 degrees)
-    parts = line.split()
-    if len(parts) == 3 and parts[2].isdigit():
-        angle = int(parts[2])
-        
-        # Initialize our 16-parameter list
-        params_list = [0] * PARAMS_COUNT
-        params_list[1] = angle  # params[1] is always the target angle
-        
-        # Determine WHICH servo to move and put it in params[0]
-        if parts[1] == 'b':
-            params_list[0] = SERVO_BASE
-        elif parts[1] == 's':
-            params_list[0] = SERVO_SHOULDER
-        elif parts[1] == 'e':
-            params_list[0] = SERVO_ELBOW
-        elif parts[1] == 'g':
-            params_list[0] = SERVO_GRIPPER
-        else:
-            print("Unknown arm part. Use b, s, e, or g.")
-            return
+    if isEstopActive():
+        print("cannot use arm as E-Stop has been activated")
+    else:
+        parts = line.split()
+        if len(parts) == 3 and parts[2].isdigit():
+            angle = int(parts[2])
+            
+            # Initialize our 16-parameter list
+            params_list = [0] * PARAMS_COUNT
+            params_list[1] = angle  # params[1] is always the target angle
+            
+            # Determine WHICH servo to move and put it in params[0]
+            if parts[1] == 'b':
+                params_list[0] = SERVO_BASE
+            elif parts[1] == 's':
+                params_list[0] = SERVO_SHOULDER
+            elif parts[1] == 'e':
+                params_list[0] = SERVO_ELBOW
+            elif parts[1] == 'g':
+                params_list[0] = SERVO_GRIPPER
+            else:
+                print("Unknown arm part. Use b, s, e, or g.")
+                return
 
-        # Send the single, unified command!
-        sendCommand(COMMAND_ARM_MOVE, params=params_list)
+            # Send the single, unified command!
+            sendCommand(COMMAND_ARM_MOVE, params=params_list)
+
+def handleMoveCommand(line):
+    if isEstopActive():
+        print("cannot move, estop activated")
+    else:
+        if len(line.split()) >= 2:
+            cmd = line.split()[0]
+            duration = line.split()[1]
+            if not(duration.isdigit()) or int(duration) < 0:
+                print("Unknown duration input")
+            else:
+                params = [0]*16;
+                params[0] = int(duration);
+                if cmd == 'w':
+                    sendCommand(COMMAND_GO, params=params)
+                elif cmd == 'a':
+                    sendCommand(COMMAND_CCW, params=params)
+                elif cmd == 's':
+                    sendCommand(COMMAND_BACK, params=params)
+                elif cmd == 'd':
+                    sendCommand(COMMAND_CW, params=params)
 # ----------------------------------------------------------------
 # COMMAND-LINE INTERFACE
 # ----------------------------------------------------------------
@@ -310,22 +334,7 @@ def handleUserInput(line):
     elif line == 'p':
         handleCameraCommand()
     elif line.split()[0] in "wasd":
-        if len(line.split()) >= 2:
-            cmd = line.split()[0]
-            duration = line.split()[1]
-            if not(duration.isdigit()) or int(duration) < 0:
-                print("Unknown duration input")
-            else:
-                params = [0]*16;
-                params[0] = int(duration);
-                if cmd == 'w':
-                    sendCommand(COMMAND_GO, params=params)
-                elif cmd == 'a':
-                    sendCommand(COMMAND_CCW, params=params)
-                elif cmd == 's':
-                    sendCommand(COMMAND_BACK, params=params)
-                elif cmd == 'd':
-                    sendCommand(COMMAND_CW, params=params)
+        handleMoveCommand(line)
     elif line == 'x':
         sendCommand(COMMAND_STOP)
     elif line == '+':

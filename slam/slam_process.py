@@ -177,9 +177,9 @@ def run_slam_process(pss: ProcessSharedState) -> None:
             try:
                 slam.getmap(mapbytes)
                 path_pts = pss.get_path_points()
-                _save_map_pgm(mapbytes, save_path, 'crash_recovery',
-                              pss.x_mm.value, pss.y_mm.value,
-                              pss.theta_deg.value, path_pts)
+                #_save_map_pgm(mapbytes, save_path, 'crash_recovery',
+                #              pss.x_mm.value, pss.y_mm.value,
+                #              pss.theta_deg.value, path_pts)
             except Exception:
                 pass
 
