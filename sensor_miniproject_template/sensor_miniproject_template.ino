@@ -734,7 +734,7 @@ void loop() {
     pidMotorSync(speed, speed);
   }
 
-   /* {
+   {
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));
       pkt.packetType = PACKET_TYPE_RESPONSE;
@@ -744,7 +744,7 @@ void loop() {
       strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
       pkt.data[sizeof(pkt.data) - 1] = '\0';
       sendFrame(&pkt);
-    }*/
+    }
 
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
