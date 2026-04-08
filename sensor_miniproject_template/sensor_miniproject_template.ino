@@ -8,7 +8,7 @@
 #define S1_BIT (1 << PA1) // D23
 #define S2_BIT (1 << PA2) // D24
 #define S3_BIT (1 << PA3) // D25
-#define OUT_BIT (1 << PK0) // A8
+#define OUT_BIT (1 << PD3) // A8
 
 #define FRONT_LEFT   4 // M4 on the driver shield
 #define FRONT_RIGHT  1 // M1 on the driver shield
@@ -202,7 +202,7 @@ ISR(TIMER2_COMPA_vect) {
 volatile uint32_t edgeCount = 0;
 
 // INT5 ISR — counts rising edges from TCS3200 OUT pin (PE5 / Digital 3)
-ISR(INT5_vect) {
+ISR(INT3_vect) {
   edgeCount++;
 }
 
@@ -216,14 +216,14 @@ static void colorSensorInit() {
 
   // Default S2/S3 to LOW (Red channel)
   PORTA &= ~(S2_BIT | S3_BIT);
-
+  // PD3
   // Sensor OUT pin PE5 as input, no internal pull-up
-  DDRK &= ~OUT_BIT;
-  PORTK &= ~OUT_BIT;
+  DDRD &= ~OUT_BIT;
+  PORTD &= ~OUT_BIT;
 
   // Configure INT5 for rising edge detection
   // EICRB: ISC51=1, ISC50=1 -> rising edge on INT5
-  EICRB |= (1 << ISC51) | (1 << ISC50);
+  EICRB |= (1 << ISC31) | (1 << ISC30);
   // Do NOT enable INT5 yet — only enabled during measurement
 }
 
@@ -291,7 +291,7 @@ static uint32_t measureChannel(uint8_t s2High, uint8_t s3High) {
   // Reset edge counter, then enable INT5
   cli();
   edgeCount = 0;
-  EIMSK |= (1 << INT5); // Enable INT5
+  EIMSK |= (1 << INT3); // Enable INT5
   sei();
 
   // Measurement window: 100 ms (1000 ticks × 100 µs)
@@ -302,7 +302,7 @@ static uint32_t measureChannel(uint8_t s2High, uint8_t s3High) {
 
   // Disable INT5, capture count
   cli();
-  EIMSK &= ~(1 << INT5);
+  EIMSK &= ~(1 << INT3);
   uint32_t count = edgeCount;
   sei();
 
@@ -330,14 +330,11 @@ static void readColorChannels(uint32_t *r, uint32_t *g, uint32_t *b) {
 
 
 ISR(PCINT0_vect) {
-    leftTicks++;
     if ((moveStateL == FORWARD)) leftTicks++;
     else if ((moveStateL == BACKWARD)) leftTicks--;
 }
 
 ISR(PCINT1_vect) {
-  // Did Pin 52 (Right Encoder, PB1) change?
-    rightTicks++;
     if ((moveStateR == FORWARD)) rightTicks++;
     else if ((moveStateR == BACKWARD)) rightTicks--;
 
@@ -735,7 +732,7 @@ void loop() {
     pidMotorSync(speed, speed);
   }
 
-    {
+   /* {
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));
       pkt.packetType = PACKET_TYPE_RESPONSE;
@@ -745,7 +742,7 @@ void loop() {
       strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
       pkt.data[sizeof(pkt.data) - 1] = '\0';
       sendFrame(&pkt);
-    }
+    }*/
 
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
