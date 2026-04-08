@@ -223,7 +223,7 @@ static void colorSensorInit() {
 
   // Configure INT5 for rising edge detection
   // EICRB: ISC51=1, ISC50=1 -> rising edge on INT5
-  EICRB |= (1 << ISC31) | (1 << ISC30);
+  EICRA |= (1 << ISC31) | (1 << ISC30);
   // Do NOT enable INT5 yet — only enabled during measurement
 }
 
