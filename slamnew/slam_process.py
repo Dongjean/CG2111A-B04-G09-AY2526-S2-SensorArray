@@ -85,13 +85,15 @@ def _resample_scan(
         if bin_counts[i] > 0:
             avg = bin_sums[i] / bin_counts[i]
             if avg >= MAX_DISTANCE_MM:
-                scan_distances.append(MAX_DISTANCE_MM)
+               # scan_distances.append(MAX_DISTANCE_MM)
+               scan_distances.append(0)
             else:
                 scan_distances.append(int(avg))
                 valid += 1
         else:
             # No reading in this bin: treat it as maximum range (no obstacle).
-            scan_distances.append(MAX_DISTANCE_MM)
+            # scan_distances.append(MAX_DISTANCE_MM)
+            scan_distances.append(0)
 
     return scan_distances, valid
 
