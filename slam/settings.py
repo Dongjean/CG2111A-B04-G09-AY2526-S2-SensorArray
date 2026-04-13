@@ -17,10 +17,10 @@ LIDAR_BAUD = 115200
 # SLAM map settings
 # ===========================================================================
 
-MAP_SIZE_PIXELS = 3000
-MAP_SIZE_METERS = 8
-MAP_QUALITY = 7
-HOLE_WIDTH_MM = 100
+MAP_SIZE_PIXELS = 8000
+MAP_SIZE_METERS = 6
+MAP_QUALITY = 4
+HOLE_WIDTH_MM = 400
 
 # ===========================================================================
 # Scan settings
@@ -29,7 +29,7 @@ HOLE_WIDTH_MM = 100
 SCAN_SIZE = 360
 SCAN_RATE_HZ = 5
 DETECTION_ANGLE = 360
-MAX_DISTANCE_MM = 12000
+MAX_DISTANCE_MM = 8000
 
 # ===========================================================================
 # LIDAR mounting offset

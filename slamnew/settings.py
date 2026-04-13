@@ -24,7 +24,7 @@ LIDAR_BAUD = 115200
 
 # Side length of the square occupancy map in pixels.
 # Larger values give finer spatial resolution but use more memory.
-MAP_SIZE_PIXELS = 600
+MAP_SIZE_PIXELS = 1000
 
 # Real-world area the map covers, in metres.
 # The map will span MAP_SIZE_METERS x MAP_SIZE_METERS metres.
@@ -75,7 +75,7 @@ MAX_DISTANCE_MM = 12000
 # measure the CCW angle from the robot's forward to the LIDAR's forward.
 #
 # The default of 0 assumes the LIDAR's forward direction matches the robot's.
-LIDAR_OFFSET_DEG = -90
+LIDAR_OFFSET_DEG = 0
 
 # ===========================================================================
 # Scan quality thresholds

@@ -45,7 +45,7 @@ volatile uint32_t currentTime = 0;
 volatile long moveStartTicks = 0;
 volatile long moveDistance = 0;
 volatile char moving = 0;
-int speed = 150;
+int speed = 255;
 int increment = 5;
 volatile int moveStateL = STOP;
 volatile int moveStateR = STOP;
@@ -378,37 +378,37 @@ void move(int direction, long distance=0)
         moveStateL = BACKWARD;
         moveStateR = BACKWARD;
 
-        motorFL.run(FORWARD);
+        motorFL.run(BACKWARD);
         motorFR.run(FORWARD);
         motorBL.run(BACKWARD);
-        motorBR.run(FORWARD); 
+        motorBR.run(BACKWARD); 
       break;
       case GO:
         moveStateL = FORWARD;
         moveStateR = FORWARD;
 
-        motorFL.run(BACKWARD);
+        motorFL.run(FORWARD);
         motorFR.run(BACKWARD);
         motorBL.run(FORWARD);
-        motorBR.run(BACKWARD); 
+        motorBR.run(FORWARD); 
       break;
       case CCW:
         moveStateL = BACKWARD;
         moveStateR = FORWARD;
 
-        motorFL.run(FORWARD);
+        motorFL.run(BACKWARD);
         motorFR.run(BACKWARD);
         motorBL.run(BACKWARD);
-        motorBR.run(BACKWARD); 
+        motorBR.run(FORWARD); 
       break;
       case CW:
         moveStateL = FORWARD;
         moveStateR = BACKWARD;
 
-        motorFL.run(BACKWARD);
+        motorFL.run(FORWARD);
         motorFR.run(FORWARD);
         motorBL.run(FORWARD);
-        motorBR.run(FORWARD); 
+        motorBR.run(BACKWARD); 
       break;
     }
   }
@@ -734,7 +734,7 @@ void loop() {
     pidMotorSync(speed, speed);
   }
 
-   {
+   /*{
       TPacket pkt;
       memset(&pkt, 0, sizeof(pkt));
       pkt.packetType = PACKET_TYPE_RESPONSE;
@@ -744,7 +744,7 @@ void loop() {
       strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
       pkt.data[sizeof(pkt.data) - 1] = '\0';
       sendFrame(&pkt);
-    }
+    }*/
 
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;

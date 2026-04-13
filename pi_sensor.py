@@ -30,6 +30,8 @@ from packets import *
 PORT     = "/dev/ttyACM0"
 BAUDRATE = 9600
 
+isColorSpamming = False
+
 _ser = None
 
 
@@ -318,6 +320,7 @@ def handleMoveCommand(line):
 
 
 def handleUserInput(line):
+    global isColorSpamming
     """
     Dispatch a single line of user input.
 
@@ -328,6 +331,10 @@ def handleUserInput(line):
         print("Sending E-Stop command...")
         sendCommand(COMMAND_ESTOP, data=b'This is a debug message')
     # TODO (Activity 2): add an elif branch for 'c' (color sensor) that calls handleColorCommand().
+    elif line == 'cs':
+        isColorSpamming = True
+    elif line == 'cx':
+        isColorSpamming = False
     elif line == 'c':
         handleColorCommand()
     # TODO (Activities 3 & 4): add elif branches for 'p' (camera) and 'l' (LIDAR).
@@ -358,6 +365,9 @@ def runCommandInterface():
     print("Press Ctrl+C to exit.\n")
 
     while True:
+        if isColorSpamming == True:
+            handleColorCommand()
+
         if _ser.in_waiting >= FRAME_SIZE:
             pkt = receiveFrame()
             if pkt:

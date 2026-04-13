@@ -88,6 +88,7 @@ def _ensure_save_dir() -> str:
 def _save_map_pgm(mapbytes: bytearray, save_path: str, tag: str,
                    x_mm: float = 0, y_mm: float = 0, theta_deg: float = 0,
                    path_points: list[tuple[float, float]] | None = None):
+
     """Save the occupancy map as a PGM file with a companion metadata .txt."""
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     basename = f'map_{tag}_{timestamp}'
@@ -254,8 +255,8 @@ def run_slam_process(pss: ProcessSharedState) -> None:
             if (save_path and AUTOSAVE_INTERVAL_S > 0
                     and now - last_autosave >= AUTOSAVE_INTERVAL_S):
                 path_pts = pss.get_path_points()
-                _save_map_pgm(mapbytes, save_path, 'autosave',
-                              x_mm, y_mm, theta_deg, path_pts)
+                #_save_map_pgm(mapbytes, save_path, 'autosave',
+                #              x_mm, y_mm, theta_deg, path_pts)
                 last_autosave = now
 
             pss.set_status(note)
@@ -266,9 +267,9 @@ def run_slam_process(pss: ProcessSharedState) -> None:
             try:
                 slam.getmap(mapbytes)
                 path_pts = pss.get_path_points()
-                _save_map_pgm(mapbytes, save_path, 'crash',
-                              pss.x_mm.value, pss.y_mm.value,
-                              pss.theta_deg.value, path_pts)
+                #_save_map_pgm(mapbytes, save_path, 'crash',
+                #              pss.x_mm.value, pss.y_mm.value,
+                #              pss.theta_deg.value, path_pts)
             except Exception:
                 pass
     finally:
@@ -276,9 +277,9 @@ def run_slam_process(pss: ProcessSharedState) -> None:
             try:
                 slam.getmap(mapbytes)
                 path_pts = pss.get_path_points()
-                _save_map_pgm(mapbytes, save_path, 'exit',
-                              pss.x_mm.value, pss.y_mm.value,
-                              pss.theta_deg.value, path_pts)
+                #_save_map_pgm(mapbytes, save_path, 'exit',
+                #              pss.x_mm.value, pss.y_mm.value,
+                #              pss.theta_deg.value, path_pts)
             except Exception:
                 pass
         try:
