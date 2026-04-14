@@ -281,10 +281,12 @@ def handleArmCommand(line):
                 params_list[0] = SERVO_ELBOW
             elif parts[1] == 'g':
                 params_list[0] = SERVO_GRIPPER
+            elif parts[1] == 'v':
+                params_list[0] = SERVO_SPEED
             else:
                 print("Unknown arm part. Use b, s, e, or g.")
                 return
-
+            print(params_list[0])
             # Send the single, unified command!
             sendCommand(COMMAND_ARM_MOVE, params=params_list)
 

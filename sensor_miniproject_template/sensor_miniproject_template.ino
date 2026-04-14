@@ -46,7 +46,7 @@ volatile long moveStartTicks = 0;
 volatile long moveDistance = 0;
 volatile char moving = 0;
 int speed = 255;
-int increment = 5;
+int increment = 100;
 volatile int moveStateL = STOP;
 volatile int moveStateR = STOP;
 
