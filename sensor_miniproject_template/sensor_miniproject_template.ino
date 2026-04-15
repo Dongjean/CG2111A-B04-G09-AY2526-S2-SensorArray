@@ -46,7 +46,7 @@ volatile long moveStartTicks = 0;
 volatile long moveDistance = 0;
 volatile char moving = 0;
 int speed = 255;
-int increment = 100;
+int increment = 10;
 volatile int moveStateL = STOP;
 volatile int moveStateR = STOP;
 
@@ -64,7 +64,7 @@ const int GRIPPER_MASK  = (1 << PK4); // Analog Pin A12
 const int BASE_MIN = 1000, BASE_MAX = 5000, BASE_RANGE = BASE_MAX - BASE_MIN;
 const int SHOULDER_MIN = 1000, SHOULDER_MAX = 2778, SHOULDER_RANGE = SHOULDER_MAX - SHOULDER_MIN;
 const int ELBOW_MIN = 1000, ELBOW_MAX = 2778, ELBOW_RANGE = ELBOW_MAX - ELBOW_MIN;
-const int GRIPPER_MIN = 1667, GRIPPER_MAX = 2778, GRIPPER_RANGE = GRIPPER_MAX - GRIPPER_MIN;
+const int GRIPPER_MIN = 1667, GRIPPER_MAX = 3000, GRIPPER_RANGE = GRIPPER_MAX - GRIPPER_MIN; // was 2778
 
 const int BASE_TPD     = BASE_RANGE / 180;
 const int SHOULDER_TPD = SHOULDER_RANGE / 180;
