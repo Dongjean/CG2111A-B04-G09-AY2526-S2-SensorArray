@@ -69,7 +69,7 @@ def _handle_client(conn, pss, angles):
         while not pss.stop_event.is_set():
             version = pss.scan_version.value
             if version == last_version:
-                time.sleep(0.05)
+                time.sleep(0.005)
                 continue
             last_version = version
             distances = list(pss.scan_distances)
@@ -83,3 +83,4 @@ def _handle_client(conn, pss, angles):
         pass
     finally:
         conn.close()
+

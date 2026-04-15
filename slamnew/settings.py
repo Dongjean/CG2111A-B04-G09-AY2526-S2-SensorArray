@@ -32,7 +32,7 @@ MAP_SIZE_METERS = 8
 
 # How aggressively new LIDAR scans update the map (1 = slow, 10 = fast).
 # Lower values produce smoother maps; higher values react faster to changes.
-MAP_QUALITY = 2
+MAP_QUALITY = 1
 
 # Maximum gap (in mm) that BreezySLAM treats as a continuous wall.
 HOLE_WIDTH_MM = 400
@@ -97,7 +97,7 @@ INITIAL_ROUNDS_SKIP = 5
 
 # How many times per second the terminal map refreshes.
 # Lower values reduce CPU load; higher values give a smoother display.
-UI_REFRESH_HZ = 2
+UI_REFRESH_HZ = 3
 
 # Maximum width and height of the rendered map in terminal cells.
 # Reduce these if the display is too slow on your terminal emulator.

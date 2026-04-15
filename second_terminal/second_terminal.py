@@ -268,6 +268,15 @@ def instainput(client: TCPClient):
         tty.setraw(fd)
  
         while True:
+            if client.hasData():
+                frame = recvTPacketFrame(client.sock)
+                if frame is None:
+                    print("\r\n[second_terminal] Connection closed.")
+                    break
+                pkt = _unpackFrame(frame)
+                if pkt:
+                    print("\r", end="")
+                    _printPacket(pkt)
             # Non-blocking check for a byte (1 ms window)
             ready, _, _ = select.select([sys.stdin], [], [], 0.001)
  
@@ -306,7 +315,8 @@ def _handleInput(line: str, client: TCPClient):
         sendTPacketFrame(client.sock, frame)
         print("[second_terminal] Sent: E-STOP")
     elif line.split()[0] in "wasd":
-        if len(line.split()) >= 2:
+        if len(line.split()) >= 2 and not(_estop_active):
+            print('hehe haha')
             cmd = line.split()[0]
             duration = line.split()[1]
             if not(duration.isdigit()) or int(duration) < 0:
