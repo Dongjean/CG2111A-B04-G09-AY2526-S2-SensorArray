@@ -42,6 +42,8 @@ Press Ctrl+C to exit.
 """
 
 import select
+import signal
+import time
 import struct
 import sys
 import time
@@ -51,9 +53,29 @@ import tty
 import termios
 import ssl
 
+estopState = False
+
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 sys.path.append(parent_dir)
+
+# Keys we track (lowercase and uppercase)
+WASD_KEYS = {b'w', b'a', b's', b'd', b'W', b'A', b'S', b'D'}
+
+
+# How long (seconds) with no keypress before we consider a key released
+HOLD_TIMEOUT = 0.05  # 50 ms — tune this if SSH latency is high
+INITIAL_HOLD_GRACE = 0.6
+
+INITIAL_TIMEOUT = 0.1
+JITTER_MULTIPLIER = 2.5
+
+# Map key -> last-seen timestamp
+_last_seen: dict[bytes, float] = {}
+_first_seen: dict[bytes, float] = {}
+_interval:   dict[bytes, float] = {}
+# Currently held keys
+keys_held: dict[bytes, bool] = {}
 
 from packets import *
 
@@ -122,7 +144,7 @@ def _printPacket(pkt):
 
     ptype = pkt['packetType']
     cmd   = pkt['command']
-
+    print(_estop_active)
     if ptype == PACKET_TYPE_RESPONSE:
         if cmd == RESP_OK:
             print("[robot] OK")
@@ -149,6 +171,76 @@ def _printPacket(pkt):
 # Input handling
 # ---------------------------------------------------------------------------
 
+def on_key_event(key: str, client: TCPClient, held: bool):
+    """
+    Called whenever a key is newly pressed or released.
+    Replace this with your own logic.
+    """
+    action = "HELD" if held else "released"
+    print(f"\r  [{action}]  {key.upper()}        ", end="", flush=True)
+    print(_estop_active)
+    if (held == True and (_estop_active == False)):
+        params = [0]*16
+        params[0] = 5
+        cmd = key.lower()
+        if cmd == 'w':
+            frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_GO, params=params)
+            sendTPacketFrame(client.sock, frame)
+        elif cmd == 'a':
+            frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_CCW, params=params)
+            sendTPacketFrame(client.sock, frame)
+        elif cmd == 's':
+            frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_BACK, params=params)
+            sendTPacketFrame(client.sock, frame)
+        elif cmd == 'd':
+            frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_CW, params=params)
+            sendTPacketFrame(client.sock, frame)
+    elif (held == False):
+        frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_STOP)
+        sendTPacketFrame(client.sock, frame)
+
+def _timeout_for(key: bytes) -> float:
+    """Return the release timeout to use for this key right now."""
+    if key in _interval:
+        # We have a measured repeat rate — use it with jitter headroom
+        return _interval[key] * JITTER_MULTIPLIER
+    # No repeats yet — use the long initial grace
+    return INITIAL_TIMEOUT
+
+def _on_byte(ch: bytes):
+    """Called for every WASD byte received."""
+    now = time.monotonic()
+
+    if ch in _last_seen:
+        gap = now - _last_seen[ch]
+        if gap < INITIAL_TIMEOUT:
+            # This looks like a repeat byte — update smoothed interval.
+            # Exponential moving average, weight 0.3 to new sample.
+            prev = _interval.get(ch, gap)
+            _interval[ch] = prev * 0.7 + gap * 0.3
+
+    _last_seen[ch] = now
+
+    if not keys_held.get(ch):
+        keys_held[ch] = True
+        _first_seen[ch] = now
+        on_key_event(ch.decode(), held=True)
+
+def _refresh_held_states(client: TCPClient):
+    """Mark keys as released if they haven't been seen recently."""
+    now = time.monotonic()
+    released = []
+    for key, last in _last_seen.items():
+        if now - last > _timeout_for(key):
+            released.append(key)
+    for key in released:
+        if keys_held.get(key):
+            keys_held[key] = False
+            on_key_event(key.decode(), client, held=False)
+        del _last_seen[key]
+        _first_seen.pop(key, None)
+        _interval.pop(key, None)
+
 def get_key():
     """ Captures a single keypress or escape sequence """
     fd = sys.stdin.fileno()
@@ -164,6 +256,44 @@ def get_key():
     finally:
         # Restore terminal settings regardless of what happens
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+def instainput(client: TCPClient):
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+ 
+    print("WASD hold detector — press keys to test, Ctrl-C or Q to quit.\n")
+    print(" W = up | A = left | S = down | D = right\n")
+ 
+    try:
+        tty.setraw(fd)
+ 
+        while True:
+            # Non-blocking check for a byte (1 ms window)
+            ready, _, _ = select.select([sys.stdin], [], [], 0.001)
+ 
+            if ready:
+                ch = sys.stdin.buffer.read(1)
+ 
+                # Quit on Ctrl-C (0x03), Ctrl-D (0x04), or Q
+                if ch in (b'\x03', b'\x04', b'q', b'Q'):
+                    break
+ 
+                if ch in WASD_KEYS:
+                    now = time.monotonic()
+                    _last_seen[ch] = now
+ 
+                    if not keys_held.get(ch):
+                        keys_held[ch] = True
+                        _first_seen[ch] = time.monotonic()
+                        on_key_event(ch.decode(), client, held=True)
+ 
+            # Always update release states
+            _refresh_held_states(client)
+ 
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        print("\n\nExiting — terminal restored.")
+
 
 def _handleInput(line: str, client: TCPClient):
     """Handle one line of keyboard input."""
@@ -199,6 +329,9 @@ def _handleInput(line: str, client: TCPClient):
     elif line == 'x':
         frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_STOP)
         sendTPacketFrame(client.sock, frame)
+    elif line == 'm':
+        print("bruh")
+        instainput(client)
     elif line == '+':
         frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_FASTER)
         sendTPacketFrame(client.sock, frame)
