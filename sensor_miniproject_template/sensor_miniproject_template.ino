@@ -734,18 +734,6 @@ void loop() {
     pidMotorSync(speed, speed);
   }
 
-   /*{
-      TPacket pkt;
-      memset(&pkt, 0, sizeof(pkt));
-      pkt.packetType = PACKET_TYPE_RESPONSE;
-      pkt.command = RESP_OK;
-      char buf[32];
-      snprintf(buf, sizeof(buf), "L:%ld R:%ld D:%ld Last:%d R:%d L:%d", leftTicks, rightTicks, moveDistance, lastPortJ, moveStateR == FORWARD, moveStateL == FORWARD);
-      strncpy(pkt.data, buf, sizeof(pkt.data) - 1);
-      pkt.data[sizeof(pkt.data) - 1] = '\0';
-      sendFrame(&pkt);
-    }*/
-
   // --- 2. Process incoming commands from the Pi ---
   TPacket incoming;
   if (receiveFrame(&incoming)) {

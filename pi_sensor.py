@@ -237,7 +237,7 @@ def handleColorCommand():
 # TODO (Activity 3): import the camera library provided (alex_camera.py).
 import alex_camera as alex
 _camera = alex.cameraOpen()          # TODO (Activity 3): open the camera (cameraOpen()) before first use.
-_frames_remaining = 15   # frames remaining before further captures are refused
+_frames_remaining = 15   # Frames remaining before further captures are refused
 
 
 def handleCameraCommand():
@@ -260,7 +260,7 @@ def handleCameraCommand():
         print("There are " + str(_frames_remaining) + " frames remaining");
 
 def handleArmCommand(line):
-    # Example input: "b 90" (Base to 90 degrees)
+    
     if isEstopActive():
         print("cannot use arm as E-Stop has been activated")
     else:
@@ -286,8 +286,7 @@ def handleArmCommand(line):
             else:
                 print("Unknown arm part. Use b, s, e, or g.")
                 return
-            print(params_list[0])
-            # Send the single, unified command!
+            # Send the single, unified command.
             sendCommand(COMMAND_ARM_MOVE, params=params_list)
 
 def handleMoveCommand(line):
@@ -333,15 +332,21 @@ def handleUserInput(line):
         print("Sending E-Stop command...")
         sendCommand(COMMAND_ESTOP, data=b'This is a debug message')
     # TODO (Activity 2): add an elif branch for 'c' (color sensor) that calls handleColorCommand().
+    
+    # Functionality to spam color sensor
     elif line == 'cs':
         isColorSpamming = True
     elif line == 'cx':
         isColorSpamming = False
+
+    # Single color scan
     elif line == 'c':
         handleColorCommand()
     # TODO (Activities 3 & 4): add elif branches for 'p' (camera) and 'l' (LIDAR).
     elif line == 'p':
         handleCameraCommand()
+    
+    # Original Movement Command Functionality
     elif line.split()[0] in "wasd":
         handleMoveCommand(line)
     elif line == 'x':
@@ -350,7 +355,10 @@ def handleUserInput(line):
         sendCommand(COMMAND_FASTER)
     elif line == '-':
         sendCommand(COMMAND_SLOWER)
-    elif line.split()[0] == 'b':
+    
+    # Robot Arm Command Functionality
+    elif line.split()[0] == 'r':
+        # Example input: "r b 90" (Base to 90 degrees)
         handleArmCommand(line);
     else:
         print(f"Unknown input: '{line}'. ecpwasdx+-")
