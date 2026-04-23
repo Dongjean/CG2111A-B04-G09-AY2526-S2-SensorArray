@@ -252,23 +252,6 @@ def _refresh_held_states(client: TCPClient):
         _first_seen.pop(key, None)
         _interval.pop(key, None)
 
-# see if can run without this
-# def get_key():
-#     """ Captures a single keypress or escape sequence """
-#     fd = sys.stdin.fileno()
-#     old_settings = termios.tcgetattr(fd)
-#     try:
-#         tty.setraw(sys.stdin.fileno())
-#         ch = sys.stdin.read(1)
-
-#         # Arrow keys are sent as escape sequences: \x1b[A, \x1b[B, etc.
-#         if ch == '\x1b':
-#             ch += sys.stdin.read(2)
-#         return ch
-#     finally:
-#         # Restore terminal settings regardless of what happens
-#         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
 def instainput(client: TCPClient):
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
