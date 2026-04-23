@@ -223,6 +223,7 @@ def _timeout_for(key: bytes) -> float:
         # We have a measured repeat rate — use it with jitter headroom
         return _interval[key] * JITTER_MULTIPLIER
     # No repeats yet — use the long initial grace
+    print("sup bruh")
     return INITIAL_TIMEOUT
 
 def _refresh_held_states(client: TCPClient):
@@ -236,7 +237,6 @@ def _refresh_held_states(client: TCPClient):
     for key, last in _last_seen.items():
         # Check if these "held" keys have been seen recently
         if now - last > _timeout_for(key):
-
             # If it has not been seen recently, append it to the list of keys to release
             released.append(key)
     for key in released: # This key has not been seen recently
