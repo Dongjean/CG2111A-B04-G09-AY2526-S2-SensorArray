@@ -62,19 +62,13 @@ sys.path.append(parent_dir)
 # Keys we track for movement commands (lowercase and uppercase)
 WASD_KEYS = {b'w', b'a', b's', b'd', b'W', b'A', b'S', b'D'}
 
-#bruh we seem to not use this, test not using it
-# # How long (seconds) with no keypress before we consider a key released
-# HOLD_TIMEOUT = 0.05  # 50 ms — tune this if SSH latency is high
-# INITIAL_HOLD_GRACE = 0.6
-
-#bruh we seem to only use this
 INITIAL_TIMEOUT = 0.1
 JITTER_MULTIPLIER = 2.5
 
 # Map key -> last-seen timestamp
 _last_seen: dict[bytes, float] = {}
 _first_seen: dict[bytes, float] = {}
-_interval:   dict[bytes, float] = {} #bruh we seem to not use this
+_interval:   dict[bytes, float] = {}
 
 # Currently held keys
 keys_held: dict[bytes, bool] = {}
@@ -222,8 +216,9 @@ def _timeout_for(key: bytes) -> float:
         print("hi?????????????????")
         # We have a measured repeat rate — use it with jitter headroom
         return _interval[key] * JITTER_MULTIPLIER
-    # No repeats yet — use the long initial grace
-    print("sup bruh")
+    # No repeats yet — use the long initial grace, and add this key to _interval
+    _interval[key] = 0.1
+    print("아시발")
     return INITIAL_TIMEOUT
 
 def _refresh_held_states(client: TCPClient):
