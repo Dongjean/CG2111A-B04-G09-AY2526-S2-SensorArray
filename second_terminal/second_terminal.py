@@ -219,6 +219,7 @@ def _timeout_for(key: bytes) -> float:
     After the initial timeout, use a shorter, stricter timeout to reduce latency when releasing keys for fine motor movement.
     """
     if key in _interval: #bruh is this even used
+        print("hi?????????????????")
         # We have a measured repeat rate — use it with jitter headroom
         return _interval[key] * JITTER_MULTIPLIER
     # No repeats yet — use the long initial grace
