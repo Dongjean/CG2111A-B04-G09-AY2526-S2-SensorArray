@@ -62,13 +62,14 @@ sys.path.append(parent_dir)
 # Keys we track for movement commands (lowercase and uppercase)
 WASD_KEYS = {b'w', b'a', b's', b'd', b'W', b'A', b'S', b'D'}
 
-INITIAL_TIMEOUT = 0.1
-JITTER_MULTIPLIER = 2.5
+# The duration to determine whether a key has timed out or not
+KEY_HELD_TIMEOUT = 0.1
 
-# Map key -> last-seen timestamp
+# The timestamps of last seen and first seen of each key
+# Current Timestamp - _last_seen[key] gives us the time since we last saw the key
+# Used for timeout of held keys
 _last_seen: dict[bytes, float] = {}
 _first_seen: dict[bytes, float] = {}
-_interval:   dict[bytes, float] = {}
 
 # Currently held keys
 keys_held: dict[bytes, bool] = {}
@@ -203,24 +204,6 @@ def on_key_event(key: str, client: TCPClient, held: bool):
         frame = _packFrame(PACKET_TYPE_COMMAND, COMMAND_STOP)
         sendTPacketFrame(client.sock, frame)
 
-#bruh lowk might remove this entire function and just use a single timeout
-def _timeout_for(key: bytes) -> float:
-    """
-    Return the key release event's timeout to use for this key right now.
-
-    Use a longer timeout for the initial button press, since the keyboard cannot spam keystrokes from the getgo.
-
-    After the initial timeout, use a shorter, stricter timeout to reduce latency when releasing keys for fine motor movement.
-    """
-    if key in _interval: #bruh is this even used
-        print("hi?????????????????")
-        # We have a measured repeat rate — use it with jitter headroom
-        return _interval[key] * JITTER_MULTIPLIER
-    # No repeats yet — use the long initial grace, and add this key to _interval
-    _interval[key] = 0.1
-    print("아시발")
-    return INITIAL_TIMEOUT
-
 def _refresh_held_states(client: TCPClient):
     """
     Mark keys as released if they haven't been seen recently.
@@ -231,7 +214,7 @@ def _refresh_held_states(client: TCPClient):
     # Check every single key that is currently marked as held
     for key, last in _last_seen.items():
         # Check if these "held" keys have been seen recently
-        if now - last > _timeout_for(key):
+        if now - last > KEY_HELD_TIMEOUT:
             # If it has not been seen recently, append it to the list of keys to release
             released.append(key)
     for key in released: # This key has not been seen recently
@@ -246,7 +229,6 @@ def _refresh_held_states(client: TCPClient):
         # Reset this key from all our dictionaries handling this
         del _last_seen[key]
         _first_seen.pop(key, None)
-        _interval.pop(key, None)
 
 def instainput(client: TCPClient):
     fd = sys.stdin.fileno()
