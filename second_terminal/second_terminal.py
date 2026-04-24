@@ -69,7 +69,6 @@ KEY_HELD_TIMEOUT = 0.1
 # Current Timestamp - _last_seen[key] gives us the time since we last saw the key
 # Used for timeout of held keys
 _last_seen: dict[bytes, float] = {}
-_first_seen: dict[bytes, float] = {}
 
 # Currently held keys
 keys_held: dict[bytes, bool] = {}
@@ -228,7 +227,6 @@ def _refresh_held_states(client: TCPClient):
         
         # Reset this key from all our dictionaries handling this
         del _last_seen[key]
-        _first_seen.pop(key, None)
 
 def instainput(client: TCPClient):
     fd = sys.stdin.fileno()
@@ -272,7 +270,6 @@ def instainput(client: TCPClient):
                     # If the processed key is not already held, update its key held state
                     if not keys_held.get(ch):
                         keys_held[ch] = True
-                        _first_seen[ch] = time.monotonic()
                         on_key_event(ch.decode(), client, held=True)
  
             # Always update release states
